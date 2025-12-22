@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Painted Slowly</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oil Portrait</title>
 
 <style>
-* { margin:0; padding:0; box-sizing:border-box }
+*{margin:0;padding:0;box-sizing:border-box}
 
 body{
-  background:#111114;
+  background:#0f0f13;
   overflow:hidden;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:system-ui,-apple-system,sans-serif;
 }
 
 canvas{
@@ -20,7 +20,7 @@ canvas{
   display:block;
 }
 
-/* subtle canvas grain */
+/* canvas texture */
 body::after{
   content:"";
   position:fixed;
@@ -28,9 +28,9 @@ body::after{
   pointer-events:none;
   background:
     repeating-linear-gradient(
-      0deg,
-      rgba(255,255,255,0.02) 0,
-      rgba(255,255,255,0.02) 1px,
+      45deg,
+      rgba(255,255,255,.03) 0,
+      rgba(255,255,255,.03) 1px,
       transparent 2px,
       transparent 4px
     );
@@ -39,32 +39,30 @@ body::after{
 
 .final{
   position:absolute;
-  bottom:8%;
+  bottom:7%;
   width:100%;
   text-align:center;
-  color:rgba(255,255,255,0.85);
+  color:rgba(255,255,255,.85);
   font-size:1rem;
-  letter-spacing:.6px;
+  letter-spacing:.5px;
   opacity:0;
   transition:opacity 3s ease;
 }
-.final.show{ opacity:1 }
+.final.show{opacity:1}
 </style>
 </head>
 
 <body>
 
-<canvas id="canvas"></canvas>
-<div class="final" id="finalText">
-  Some things are worth creating slowly.
-</div>
+<canvas id="c"></canvas>
+<div class="final" id="final">Some things are worth creating slowly.</div>
 
 <script>
-const canvas = document.getElementById("canvas");
+const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const DPR = devicePixelRatio || 1;
 
-let W, H;
+let W,H;
 function resize(){
   W = canvas.width = innerWidth * DPR;
   H = canvas.height = innerHeight * DPR;
@@ -75,112 +73,82 @@ addEventListener("resize", resize);
 const img = new Image();
 img.src = "portrait.jpg";
 
-let strokes = [];
-let index = 0;
-let passes = [14, 8, 4]; // large → medium → fine
-let currentPass = 0;
+let strokes=[], index=0;
 
-img.onload = () => prepare();
+img.onload = () => start();
 
-function prepare(){
-  const t = document.createElement("canvas");
-  const tctx = t.getContext("2d");
-
-  // correct aspect fit (NO CROP)
-  const scale = Math.min(W / img.width, H / img.height);
+function start(){
+  // ----- STEP 1: CLEAR UNDERPAINTING -----
+  const scale = Math.min(W/img.width, H/img.height);
   const iw = img.width * scale;
   const ih = img.height * scale;
-  const ix = (W - iw) / 2;
-  const iy = (H - ih) / 2;
+  const ix = (W - iw)/2;
+  const iy = (H - ih)/2;
 
-  t.width = W;
-  t.height = H;
-  tctx.fillStyle = "#111114";
-  tctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#0f0f13";
+  ctx.fillRect(0,0,W,H);
+
+  ctx.globalAlpha = 0.35;      // IMPORTANT: structure visible
+  ctx.drawImage(img, ix, iy, iw, ih);
+  ctx.globalAlpha = 1;
+
+  // ----- STEP 2: PREPARE STROKES -----
+  const t = document.createElement("canvas");
+  const tctx = t.getContext("2d");
+  t.width=W; t.height=H;
   tctx.drawImage(img, ix, iy, iw, ih);
+  const data = tctx.getImageData(0,0,W,H).data;
 
-  const imgData = tctx.getImageData(0,0,W,H);
-  const data = imgData.data;
+  for(let y=0;y<H;y+=6){
+    for(let x=0;x<W;x+=6){
+      const i=(y*W+x)*4;
+      if(data[i+3]<20) continue;
 
-  strokes = [];
-
-  const step = passes[currentPass];
-
-  for(let y = 1; y < H-1; y += step){
-    for(let x = 1; x < W-1; x += step){
-      const i = (y * W + x) * 4;
-      const a = data[i+3];
-      if(a < 20) continue;
-
-      // Sobel edge detection (direction)
-      const gx =
-        -data[((y-1)*W + (x-1))*4] +
-         data[((y-1)*W + (x+1))*4] +
-        -2*data[(y*W + (x-1))*4] +
-         2*data[(y*W + (x+1))*4] +
-        -data[((y+1)*W + (x-1))*4] +
-         data[((y+1)*W + (x+1))*4];
-
-      const gy =
-        -data[((y-1)*W + (x-1))*4] +
-        -2*data[((y-1)*W + x)*4] +
-        -data[((y-1)*W + (x+1))*4] +
-         data[((y+1)*W + (x-1))*4] +
-         2*data[((y+1)*W + x)*4] +
-         data[((y+1)*W + (x+1))*4];
-
-      const angle = Math.atan2(gy, gx);
+      const r=data[i], g=data[i+1], b=data[i+2];
+      const brightness=(r+g+b)/3;
 
       strokes.push({
-        x, y,
-        r: data[i],
-        g: data[i+1],
-        b: data[i+2],
-        angle,
-        size: step * 0.6
+        x,y,r,g,b,
+        size: brightness<90 ? 7 : brightness<160 ? 5 : 3,
+        alpha: brightness<90 ? .25 : .18,
+        angle: Math.random()*Math.PI
       });
     }
   }
 
-  strokes.sort(() => Math.random() - 0.5);
+  strokes.sort(()=>Math.random()-.5);
   requestAnimationFrame(paint);
 }
 
 function paint(){
-  for(let i=0;i<80;i++){
-    const s = strokes[index];
+  for(let i=0;i<90;i++){
+    const s=strokes[index];
     if(!s) break;
 
-    ctx.strokeStyle = `rgba(${s.r},${s.g},${s.b},0.9)`;
-    ctx.lineWidth = s.size;
-    ctx.lineCap = "round";
+    ctx.strokeStyle=`rgba(${s.r},${s.g},${s.b},${s.alpha})`;
+    ctx.lineWidth=s.size;
+    ctx.lineCap="round";
 
-    const len = s.size * 2.2;
+    const len=s.size*2.8;
 
     ctx.beginPath();
     ctx.moveTo(
-      s.x + Math.cos(s.angle) * len,
-      s.y + Math.sin(s.angle) * len
+      s.x + Math.cos(s.angle)*len,
+      s.y + Math.sin(s.angle)*len
     );
     ctx.lineTo(
-      s.x - Math.cos(s.angle) * len,
-      s.y - Math.sin(s.angle) * len
+      s.x - Math.cos(s.angle)*len,
+      s.y - Math.sin(s.angle)*len
     );
     ctx.stroke();
 
     index++;
   }
 
-  if(index < strokes.length){
+  if(index<strokes.length){
     requestAnimationFrame(paint);
   } else {
-    currentPass++;
-    if(currentPass < passes.length){
-      index = 0;
-      prepare();
-    } else {
-      document.getElementById("finalText").classList.add("show");
-    }
+    document.getElementById("final").classList.add("show");
   }
 }
 </script>
