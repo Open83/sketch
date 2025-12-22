@@ -1,271 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Masterpiece Generator</title>
-
-<style>
-/* --- THE GALLERY --- */
-*{margin:0;padding:0;box-sizing:border-box}
-
-body{
-  background:#1a1a1a;
-  overflow:hidden;
-  font-family: 'Courier New', Courier, monospace; 
-  /* Prevent drag/zoom on mobile for better experience */
-  touch-action: none;
-}
-
-canvas{
-  display:block;
-  /* Center the canvas visually */
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 50px rgba(0,0,0,0.8);
-}
-
-/* --- TEXTURE OVERLAY (The "Canvas" Feel) --- */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
-  opacity: 0.6;
-  mix-blend-mode: overlay;
-  z-index: 10;
-}
-
-/* --- UI / LOADING --- */
-#ui {
-  position: fixed;
-  bottom: 30px;
-  width: 100%;
-  text-align: center;
-  color: rgba(255,255,255,0.6);
-  z-index: 20;
-  pointer-events: none;
-  font-size: 12px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-
-.signature {
-    font-family: cursive;
-    font-size: 1.2rem;
-    opacity: 0;
-    transition: opacity 2s ease;
-    color: #e0e0e0;
-}
-.show { opacity: 1; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oil Portrait</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        }
+        #status {
+            position: absolute;
+            top: 20px;
+            color: white;
+            font-family: sans-serif;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+    </style>
 </head>
-
 <body>
 
-<canvas id="c"></canvas>
-<div id="ui">Analyzing Light & Form...</div>
+    <div id="status">Loading Studio...</div>
+    <canvas id="canvas"></canvas>
 
-<script>
-/**
- * GOD LEVEL OIL PAINTING ENGINE
- * 1. Computes Image Gradients (Sobel Operator) to detect "flow".
- * 2. Aligns brush strokes to the curves of the face.
- * 3. Renders in 3 distinct passes (Rough -> Fine).
- */
-
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d", { willReadFrequently: true });
-const ui = document.getElementById("ui");
-
-const img = new Image();
-img.src = "portrait.jpg"; // Ensure this file exists!
-
-// Configuration
-const CONFIG = {
-    padding: 0,        // No border
-    // Painting Passes: [Brush Size, Sampling Density, Opacity]
-    passes: [
-        { size: 60,  density: 20, alpha: 0.8 }, // Block in (Underpainting)
-        { size: 20,  density: 8,  alpha: 0.7 }, // Form
-        { size: 8,   density: 4,  alpha: 0.9 }  // Detail (Impasto)
-    ]
-};
-
-let W, H;
-let particles = [];
-let imgData = null;
-let grayBuffer = null; // For gradient calculation
-let sourceW, sourceH;
-
-img.onload = () => {
-    init();
-    startPainting();
-};
-
-function init() {
-    // 1. Fit Image to Screen (Contain)
-    const aspect = img.width / img.height;
-    const screenAspect = innerWidth / innerHeight;
-    
-    if (screenAspect > aspect) {
-        H = innerHeight;
-        W = H * aspect;
-    } else {
-        W = innerWidth;
-        H = W / aspect;
-    }
-    
-    // Set actual canvas size (Sharpness)
-    canvas.width = W;
-    canvas.height = H;
-    
-    // Draw raw image once to memory to read pixel data
-    ctx.drawImage(img, 0, 0, W, H);
-    sourceW = W; 
-    sourceH = H;
-    
-    // Get Pixel Data
-    imgData = ctx.getImageData(0, 0, W, H).data;
-    
-    // Compute Grayscale Buffer for "Flow Field" (Edge Detection)
-    grayBuffer = new Float32Array(W * H);
-    for (let i = 0; i < W * H; i++) {
-        // Luminance formula
-        const r = imgData[i * 4];
-        const g = imgData[i * 4 + 1];
-        const b = imgData[i * 4 + 2];
-        grayBuffer[i] = 0.299 * r + 0.587 * g + 0.114 * b;
-    }
-
-    // Clear canvas for the painting to start
-    ctx.fillStyle = "#1a1a1a";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-// --- CORE LOGIC: FIND ANGLE AT PIXEL ---
-// Uses Sobel-like kernel to find direction of highest contrast
-function getFlowAngle(x, y) {
-    x = Math.floor(x);
-    y = Math.floor(y);
-    if (x < 1 || x >= W - 1 || y < 1 || y >= H - 1) return Math.random() * Math.PI * 2;
-
-    const idx = y * W + x;
-    
-    // Simple gradient approximation
-    const gX = grayBuffer[idx + 1] - grayBuffer[idx - 1];
-    const gY = grayBuffer[idx + W] - grayBuffer[idx - W];
-    
-    // Math.atan2 gives gradient direction. 
-    // We want PERPENDICULAR direction (stroke along the edge, not across it)
-    return Math.atan2(gY, gX) + Math.PI / 2;
-}
-
-async function startPainting() {
-    // Loop through passes (Large Brush -> Small Brush)
-    for (let passIndex = 0; passIndex < CONFIG.passes.length; passIndex++) {
-        const pass = CONFIG.passes[passIndex];
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const status = document.getElementById('status');
         
-        // Update UI
-        if(passIndex === 0) ui.innerText = "Laying Underpainting...";
-        if(passIndex === 1) ui.innerText = "Defining Forms...";
-        if(passIndex === 2) ui.innerText = "Adding Details...";
+        // Settings for the Oil Painting Look
+        const SETTINGS = {
+            particles: 2000,   // Number of "brushes" painting at once
+            alpha: 0.15,       // Opacity of each stroke (Lower = smoother blending)
+            strokeSize: 15,    // Base size of the brush
+            variance: 10       // How much the brush size changes
+        };
 
-        await runPass(pass);
-    }
-    
-    ui.innerHTML = "<span class='signature'>Masterpiece.</span>";
-    document.querySelector('.signature').classList.add('show');
-}
+        let width, height;
+        let particles = [];
+        let imgData = null; // To store color data
+        let useSimpleMode = false; // Fallback if browser blocks pixel reading
 
-function runPass(pass) {
-    return new Promise(resolve => {
-        // Generate stroke positions for this pass
-        // Randomize order so it looks organic
-        let points = [];
-        for (let y = 0; y < H; y += pass.density) {
-            for (let x = 0; x < W; x += pass.density) {
-                // Add some jitter so it's not a perfect grid
-                const jx = x + (Math.random() - 0.5) * pass.density;
-                const jy = y + (Math.random() - 0.5) * pass.density;
+        // Load the Image
+        const img = new Image();
+        img.src = 'portrait.jpg';  // Make sure this name matches your file exactly!
+
+        img.onload = function() {
+            initCanvas();
+            
+            // SECURITY CHECK: Try to read pixels
+            try {
+                // Draw image once to memory to read data
+                ctx.drawImage(img, 0, 0, width, height);
+                imgData = ctx.getImageData(0, 0, width, height).data;
                 
-                if(jx > 0 && jx < W && jy > 0 && jy < H) {
-                    points.push({ x: jx, y: jy });
+                // If successful, clear and start the advanced art engine
+                ctx.fillStyle = "#222"; 
+                ctx.fillRect(0,0,width,height); 
+                initParticles();
+                animate();
+                showMessage("Painting in progress...");
+            } catch (e) {
+                // If browser blocks it (CORS Error), run Simple Mode
+                console.warn("Security Block detected. Switching to Simple Mode.");
+                useSimpleMode = true;
+                ctx.clearRect(0,0,width, height);
+                ctx.drawImage(img, 0, 0, width, height); // Just show the image
+                applyOilFilterEffect(); // Apply a visual filter instead
+                showMessage("Security Mode: Standard View");
+            }
+        };
+
+        img.onerror = function() {
+            showMessage("Error: Cannot find 'portrait.jpg'");
+        };
+
+        function initCanvas() {
+            // Calculate aspect ratio to fit screen
+            const aspect = img.width / img.height;
+            if (window.innerWidth / window.innerHeight < aspect) {
+                width = window.innerWidth;
+                height = width / aspect;
+            } else {
+                height = window.innerHeight;
+                width = height * aspect;
+            }
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function showMessage(msg) {
+            status.innerText = msg;
+            status.style.opacity = 1;
+            setTimeout(() => status.style.opacity = 0, 4000);
+        }
+
+        // --- ART ENGINE (Particle System) ---
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.speedX = 0;
+                this.speedY = 0;
+                this.size = Math.random() * SETTINGS.strokeSize + 5;
+            }
+            
+            update() {
+                // Move the brush randomly but smoothly
+                this.x += this.speedX;
+                this.y += this.speedY;
+                
+                // Change direction occasionally
+                if (Math.random() < 0.05) {
+                    this.speedX = (Math.random() - 0.5) * 2;
+                    this.speedY = (Math.random() - 0.5) * 2;
                 }
+
+                // Wrap around screen
+                if (this.x > width) this.x = 0;
+                if (this.x < 0) this.x = width;
+                if (this.y > height) this.y = 0;
+                if (this.y < 0) this.y = height;
+            }
+            
+            draw() {
+                // Find where the particle is on the image
+                const px = Math.floor(this.x);
+                const py = Math.floor(this.y);
+                const index = (py * width + px) * 4;
+                
+                // Get the color from the original image
+                const r = imgData[index];
+                const g = imgData[index + 1];
+                const b = imgData[index + 2];
+                
+                // Draw the stroke
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${SETTINGS.alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            for (let i = 0; i < SETTINGS.particles; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate() {
+            if(useSimpleMode) return;
+
+            // Draw multiple strokes per frame for speed
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // --- FALLBACK (If browser blocks script) ---
+        function applyOilFilterEffect() {
+            // Adds a canvas filter if we can't do the particle animation
+            ctx.filter = 'contrast(1.2) saturate(1.2) sepia(0.1)';
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Add a texture overlay
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = 'rgba(100,100,100,0.2)';
+            for(let i=0; i<10000; i++) {
+                ctx.fillRect(Math.random()*width, Math.random()*height, 2, 2);
             }
         }
         
-        // Shuffle points (Organic painting order)
-        points.sort(() => Math.random() - 0.5);
+        window.addEventListener('resize', () => {
+             // Reload to reset canvas size
+             location.reload();
+        });
 
-        // Render Loop
-        let i = 0;
-        const speed = 60; // Strokes per frame
-        
-        function drawFrame() {
-            for (let k = 0; k < speed; k++) {
-                if (i >= points.length) {
-                    resolve(); // Pass complete
-                    return;
-                }
-                
-                const p = points[i];
-                const angle = getFlowAngle(p.x, p.y);
-                const color = getColor(p.x, p.y);
-                
-                drawStroke(p.x, p.y, pass.size, angle, color, pass.alpha);
-                i++;
-            }
-            requestAnimationFrame(drawFrame);
-        }
-        drawFrame();
-    });
-}
-
-function getColor(x, y) {
-    x = Math.floor(x);
-    y = Math.floor(y);
-    const i = (y * W + x) * 4;
-    return {
-        r: imgData[i],
-        g: imgData[i+1],
-        b: imgData[i+2]
-    };
-}
-
-function drawStroke(x, y, size, angle, color, alpha) {
-    ctx.save();
-    
-    // Natural Color Variation (Dirty Brush)
-    const rVar = (Math.random() - 0.5) * 15;
-    const gVar = (Math.random() - 0.5) * 15;
-    const bVar = (Math.random() - 0.5) * 15;
-    
-    ctx.fillStyle = `rgba(${color.r + rVar}, ${color.g + gVar}, ${color.b + bVar}, ${alpha})`;
-    
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    
-    // Draw an "Organic" Stroke shape (Ellipse-ish but varied)
-    const length = size * (1.5 + Math.random() * 0.5); // Random length
-    const width = size * (0.5 + Math.random() * 0.2); // Random thickness
-    
-    ctx.beginPath();
-    ctx.ellipse(0, 0, length, width, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.restore();
-}
-
-// Resize handler
-window.addEventListener("resize", () => {
-    location.reload(); // Simplest way to handle resize for art generation
-});
-
-</script>
-
+    </script>
 </body>
 </html>
