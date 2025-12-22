@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Created Slowly</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0c0c10;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+canvas {
+  width: 100vw;
+  height: 100vh;
+  touch-action: none;
+  display: block;
+}
+
+/* subtle paper grain */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-radial-gradient(circle at 0 0,
+      rgba(255,255,255,0.03) 0,
+      rgba(255,255,255,0.03) 1px,
+      transparent 2px,
+      transparent 4px);
+  mix-blend-mode: overlay;
+}
+
+/* final text */
+.final {
+  position: absolute;
+  bottom: 8%;
+  width: 100%;
+  text-align: center;
+  color: rgba(255,255,255,0.85);
+  font-size: 1rem;
+  letter-spacing: 0.6px;
+  opacity: 0;
+  transition: opacity 3s ease;
+}
+
+.final.show {
+  opacity: 1;
+}
+
+/* export button */
+button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  backdrop-filter: blur(10px);
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="c"></canvas>
+<div class="final" id="finalText">
+  Some things are worth creating slowly.
+</div>
+<button id="save">Save</button>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const finalText = document.getElementById("finalText");
+
+let DPR = devicePixelRatio || 1;
+let W, H;
+
+function resize() {
+  W = canvas.width = innerWidth * DPR;
+  H = canvas.height = innerHeight * DPR;
+}
+resize();
+addEventListener("resize", resize);
+
+// load image
+const img = new Image();
+img.src = "portrait.jpg";
+
+let strokes = [];
+let index = 0;
+let speed = 120;
+
+img.onload = () => prepare();
+
+function prepare() {
+  const t = document.createElement("canvas");
+  const tctx = t.getContext("2d");
+
+  const r = Math.min(W / img.width, H / img.height);
+  const iw = img.width * r;
+  const ih = img.height * r;
+  const ix = (W - iw) / 2;
+  const iy = (H - ih) / 2;
+
+  t.width = W;
+  t.height = H;
+  tctx.drawImage(img, ix, iy, iw, ih);
+
+  const d = tctx.getImageData(0,0,W,H).data;
+
+  for (let y = 0; y < H; y += 5) {
+    for (let x = 0; x < W; x += 5) {
+      const i = (y * W + x) * 4;
+      const a = d[i+3];
+      if (a > 20) {
+        strokes.push({
+          x, y,
+          r: d[i],
+          g: d[i+1],
+          b: d[i+2],
+          angle: Math.random() * Math.PI,
+          size: Math.random() * 3 + 1
+        });
+      }
+    }
+  }
+
+  strokes.sort(() => Math.random() - 0.5);
+  requestAnimationFrame(paint);
+}
+
+function paint() {
+  for (let i = 0; i < speed; i++) {
+    const s = strokes[index];
+    if (!s) break;
+
+    ctx.strokeStyle = `rgba(${s.r},${s.g},${s.b},0.85)`;
+    ctx.lineWidth = s.size;
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+    ctx.moveTo(
+      s.x + Math.cos(s.angle) * 3,
+      s.y + Math.sin(s.angle) * 3
+    );
+    ctx.lineTo(
+      s.x - Math.cos(s.angle) * 3,
+      s.y - Math.sin(s.angle) * 3
+    );
+    ctx.stroke();
+
+    // watercolor bleed
+    ctx.fillStyle = `rgba(${s.r},${s.g},${s.b},0.08)`;
+    ctx.beginPath();
+    ctx.arc(
+      s.x + Math.random()*2,
+      s.y + Math.random()*2,
+      3,
+      0, Math.PI*2
+    );
+    ctx.fill();
+
+    index++;
+  }
+
+  if (index < strokes.length) {
+    requestAnimationFrame(paint);
+  } else {
+    finalText.classList.add("show");
+  }
+}
+
+// touch interaction
+let lastTouch = 0;
+canvas.addEventListener("touchstart", () => {
+  const now = Date.now();
+  if (now - lastTouch < 300) {
+    speed = Math.min(speed + 80, 600);
+  }
+  lastTouch = now;
+});
+
+canvas.addEventListener("touchend", () => {
+  speed = 120;
+});
+
+// save image
+document.getElementById("save").onclick = () => {
+  const link = document.createElement("a");
+  link.download = "painting.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+};
+</script>
+
+</body>
+</html>
