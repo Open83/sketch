@@ -1,196 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oil Portrait</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #222;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        canvas {
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
-        }
-        #status {
-            position: absolute;
-            top: 20px;
-            color: white;
-            font-family: sans-serif;
-            background: rgba(0,0,0,0.7);
-            padding: 10px 20px;
-            border-radius: 20px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 1s;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eternal Portrait</title>
+<style>
+    /* --- THE GALLERY SETTING --- */
+    body {
+        margin: 0;
+        height: 100vh;
+        background-color: #050505; /* Pitch black */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* --- THE FRAMING --- */
+    .frame {
+        position: relative;
+        width: auto;
+        height: 85vh; /* Responsive height */
+        aspect-ratio: 3/4; /* Adjust based on your image shape */
+        box-shadow: 
+            0 0 0 10px #1a1a1a, /* Inner matte */
+            0 0 0 12px #444, /* Silver trim */
+            0 20px 50px rgba(0,0,0,1); /* Deep shadow */
+        opacity: 0;
+        animation: reveal 3s ease-out forwards 0.5s;
+        overflow: hidden; /* Contains the image */
+    }
+
+    /* --- THE ARTWORK (The Fix) --- */
+    #artwork {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* THE GOD LEVEL TRICK: SVG FILTER */
+        filter: url('#oil-painting-v2') brightness(1.1) contrast(1.15);
+        transform: scale(1.05); /* Slight zoom to hide edges */
+        transition: transform 10s ease;
+    }
+    
+    .frame:hover #artwork {
+        transform: scale(1.1); /* Subtle "Alive" movement */
+    }
+
+    /* --- DUST PARTICLES OVERLAY --- */
+    #dust-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        opacity: 0.6;
+    }
+
+    /* --- TEXT UI --- */
+    .label {
+        position: absolute;
+        bottom: 30px;
+        width: 100%;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.8rem;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        text-shadow: 0 2px 4px black;
+        opacity: 0;
+        animation: fadeUp 2s ease forwards 2s;
+    }
+
+    /* --- ANIMATIONS --- */
+    @keyframes reveal {
+        0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes fadeUp {
+        to { opacity: 1; }
+    }
+
+</style>
 </head>
 <body>
 
-    <div id="status">Loading Studio...</div>
-    <canvas id="canvas"></canvas>
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;">
+        <defs>
+            <filter id="oil-painting-v2">
+                <feTurbulence type="fractalNoise" baseFrequency="0.005" numOctaves="5" result="noise" />
+                
+                <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" in="noise" result="goo" />
+                
+                <feDisplacementMap in="SourceGraphic" in2="goo" scale="25" xChannelSelector="R" yChannelSelector="G" />
+                
+                <feSpecularLighting surfaceScale="2" specularConstant="0.75" specularExponent="20" lighting-color="#ffffff" in="goo" result="light">
+                    <fePointLight x="0" y="0" z="200" />
+                </feSpecularLighting>
+                
+                <feComposite in="light" in2="SourceGraphic" operator="in" result="light-effect" />
+                <feComposite in="SourceGraphic" in2="light-effect" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
+            </filter>
+        </defs>
+    </svg>
+
+    <div class="frame">
+        <img id="artwork" src="portrait.jpg" alt="Art">
+        <canvas id="dust-canvas"></canvas>
+        <div class="label">The Masterpiece</div>
+    </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const status = document.getElementById('status');
+        const canvas = document.getElementById('dust-canvas');
+        const ctx = canvas.getContext('2d');
         
-        // Settings for the Oil Painting Look
-        const SETTINGS = {
-            particles: 2000,   // Number of "brushes" painting at once
-            alpha: 0.15,       // Opacity of each stroke (Lower = smoother blending)
-            strokeSize: 15,    // Base size of the brush
-            variance: 10       // How much the brush size changes
-        };
-
         let width, height;
         let particles = [];
-        let imgData = null; // To store color data
-        let useSimpleMode = false; // Fallback if browser blocks pixel reading
 
-        // Load the Image
-        const img = new Image();
-        img.src = 'portrait.jpg';  // Make sure this name matches your file exactly!
-
-        img.onload = function() {
-            initCanvas();
-            
-            // SECURITY CHECK: Try to read pixels
-            try {
-                // Draw image once to memory to read data
-                ctx.drawImage(img, 0, 0, width, height);
-                imgData = ctx.getImageData(0, 0, width, height).data;
-                
-                // If successful, clear and start the advanced art engine
-                ctx.fillStyle = "#222"; 
-                ctx.fillRect(0,0,width,height); 
-                initParticles();
-                animate();
-                showMessage("Painting in progress...");
-            } catch (e) {
-                // If browser blocks it (CORS Error), run Simple Mode
-                console.warn("Security Block detected. Switching to Simple Mode.");
-                useSimpleMode = true;
-                ctx.clearRect(0,0,width, height);
-                ctx.drawImage(img, 0, 0, width, height); // Just show the image
-                applyOilFilterEffect(); // Apply a visual filter instead
-                showMessage("Security Mode: Standard View");
-            }
-        };
-
-        img.onerror = function() {
-            showMessage("Error: Cannot find 'portrait.jpg'");
-        };
-
-        function initCanvas() {
-            // Calculate aspect ratio to fit screen
-            const aspect = img.width / img.height;
-            if (window.innerWidth / window.innerHeight < aspect) {
-                width = window.innerWidth;
-                height = width / aspect;
-            } else {
-                height = window.innerHeight;
-                width = height * aspect;
-            }
-            canvas.width = width;
-            canvas.height = height;
+        function resize() {
+            width = canvas.width = canvas.offsetWidth;
+            height = canvas.height = canvas.offsetHeight;
         }
+        window.addEventListener('resize', resize);
+        resize();
 
-        function showMessage(msg) {
-            status.innerText = msg;
-            status.style.opacity = 1;
-            setTimeout(() => status.style.opacity = 0, 4000);
-        }
-
-        // --- ART ENGINE (Particle System) ---
+        // Create floating "gold dust"
         class Particle {
             constructor() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * height;
-                this.speedX = 0;
-                this.speedY = 0;
-                this.size = Math.random() * SETTINGS.strokeSize + 5;
+                this.size = Math.random() * 1.5;
+                this.speedX = Math.random() * 0.2 - 0.1;
+                this.speedY = Math.random() * 0.2 - 0.1;
+                this.opacity = Math.random() * 0.5;
             }
-            
             update() {
-                // Move the brush randomly but smoothly
                 this.x += this.speedX;
                 this.y += this.speedY;
-                
-                // Change direction occasionally
-                if (Math.random() < 0.05) {
-                    this.speedX = (Math.random() - 0.5) * 2;
-                    this.speedY = (Math.random() - 0.5) * 2;
-                }
-
-                // Wrap around screen
-                if (this.x > width) this.x = 0;
-                if (this.x < 0) this.x = width;
-                if (this.y > height) this.y = 0;
-                if (this.y < 0) this.y = height;
+                if(this.x < 0) this.x = width;
+                if(this.x > width) this.x = 0;
+                if(this.y < 0) this.y = height;
+                if(this.y > height) this.y = 0;
             }
-            
             draw() {
-                // Find where the particle is on the image
-                const px = Math.floor(this.x);
-                const py = Math.floor(this.y);
-                const index = (py * width + px) * 4;
-                
-                // Get the color from the original image
-                const r = imgData[index];
-                const g = imgData[index + 1];
-                const b = imgData[index + 2];
-                
-                // Draw the stroke
-                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${SETTINGS.alpha})`;
+                ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`; // Gold color
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
                 ctx.fill();
             }
         }
 
-        function initParticles() {
-            for (let i = 0; i < SETTINGS.particles; i++) {
-                particles.push(new Particle());
-            }
+        function initDust() {
+            for(let i=0; i<100; i++) particles.push(new Particle());
         }
 
         function animate() {
-            if(useSimpleMode) return;
-
-            // Draw multiple strokes per frame for speed
-            for (let i = 0; i < particles.length; i++) {
-                particles[i].update();
-                particles[i].draw();
-            }
+            ctx.clearRect(0, 0, width, height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
             requestAnimationFrame(animate);
         }
 
-        // --- FALLBACK (If browser blocks script) ---
-        function applyOilFilterEffect() {
-            // Adds a canvas filter if we can't do the particle animation
-            ctx.filter = 'contrast(1.2) saturate(1.2) sepia(0.1)';
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Add a texture overlay
-            ctx.globalCompositeOperation = 'overlay';
-            ctx.fillStyle = 'rgba(100,100,100,0.2)';
-            for(let i=0; i<10000; i++) {
-                ctx.fillRect(Math.random()*width, Math.random()*height, 2, 2);
-            }
-        }
-        
-        window.addEventListener('resize', () => {
-             // Reload to reset canvas size
-             location.reload();
-        });
-
+        // Wait a split second to ensure layout is done
+        setTimeout(() => {
+            resize();
+            initDust();
+            animate();
+        }, 100);
     </script>
 </body>
 </html>
