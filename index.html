@@ -14,22 +14,22 @@
     
     <div id="ui-layer">
         <button id="capture-btn" class="magnetic-btn" aria-label="Capture Moment">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.5" fill="none">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                 <circle cx="12" cy="13" r="4"></circle>
             </svg>
-            <span class="tooltip">Save Art</span>
+            <span class="tooltip">Capture this Moment</span>
         </button>
     </div>
 
     <main id="scroll-container">
-        <section class="chapter">
+        <section class="chapter in-view">
             <div class="content-wrapper magnetic-text">
                 <h1 class="hero-title">Celestial<br>Resonance</h1>
                 <p class="subtitle">A universe woven from attention</p>
                 <div class="interaction-hint">
-                    <span class="desktop-hint">Move to weave</span>
-                    <span class="mobile-hint">Tilt to explore</span>
+                    <span class="desktop-hint">Move cursor to orbit</span>
+                    <span class="mobile-hint">Tilt phone to explore</span>
                 </div>
             </div>
         </section>
@@ -45,7 +45,7 @@
         <section class="chapter">
             <div class="content-wrapper magnetic-text">
                 <p class="verse">Gravity is not a force.</p>
-                <p class="verse highlight">It is a curvature</p>
+                <p class="verse highlight">It is the curvature</p>
                 <p class="verse">of space around a soul.</p>
             </div>
         </section>
@@ -66,6 +66,7 @@
     </main>
 
     <div class="vignette"></div>
+
     <script src="script.js"></script>
 </body>
 </html>
