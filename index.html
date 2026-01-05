@@ -3,62 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Muse — A Living Portrait</title>
+    <title>Celestial Resonance — For Her</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Italianno&family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,400&family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="artCanvas"></canvas>
+    <canvas id="cosmosCanvas"></canvas>
     
-    <div class="texture-overlay"></div>
-    <div class="gradient-overlay"></div>
-    
+    <div id="ui-layer">
+        <button id="capture-btn" class="magnetic-btn" aria-label="Capture Moment">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.5" fill="none">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span class="tooltip">Save Art</span>
+        </button>
+    </div>
+
     <main id="scroll-container">
-        <section class="chapter" data-palette="dawn">
-            <div class="content-wrapper">
-                <h1 class="script-title">The Masterpiece</h1>
-                <p class="subtitle">Art is not what I create.</p>
-                <div class="scroll-hint">
-                    <span>Touch to paint</span>
-                    <div class="line"></div>
+        <section class="chapter">
+            <div class="content-wrapper magnetic-text">
+                <h1 class="hero-title">Celestial<br>Resonance</h1>
+                <p class="subtitle">A universe woven from attention</p>
+                <div class="interaction-hint">
+                    <span class="desktop-hint">Move to weave</span>
+                    <span class="mobile-hint">Tilt to explore</span>
                 </div>
             </div>
         </section>
 
-        <section class="chapter" data-palette="rose">
-            <div class="content-wrapper">
-                <p class="verse">It is the chaos</p>
-                <p class="verse accent">of your colors</p>
-                <p class="verse">bleeding into mine.</p>
+        <section class="chapter">
+            <div class="content-wrapper magnetic-text">
+                <p class="verse">In the vastness of noise,</p>
+                <p class="verse highlight">you are the signal.</p>
+                <p class="verse">Clear. Constant. True.</p>
             </div>
         </section>
 
-        <section class="chapter" data-palette="ocean">
-            <div class="content-wrapper">
-                <p class="verse">Every movement</p>
-                <p class="verse accent">a brushstroke</p>
-                <p class="verse">upon the silence.</p>
+        <section class="chapter">
+            <div class="content-wrapper magnetic-text">
+                <p class="verse">Gravity is not a force.</p>
+                <p class="verse highlight">It is a curvature</p>
+                <p class="verse">of space around a soul.</p>
             </div>
         </section>
 
-        <section class="chapter" data-palette="gold">
-            <div class="content-wrapper">
-                <p class="verse">You are not</p>
-                <p class="verse">the image.</p>
-                <p class="verse accent">You are the light.</p>
+        <section class="chapter">
+            <div class="content-wrapper magnetic-text">
+                <p class="verse">Every chaotic star</p>
+                <p class="verse">aligns into constellation</p>
+                <p class="verse highlight">when you are near.</p>
             </div>
         </section>
 
-        <section class="chapter" data-palette="midnight">
-            <div class="content-wrapper">
-                <p class="final-text">Art of Work</p>
-                <p class="signature">For Her.</p>
+        <section class="chapter">
+            <div class="content-wrapper magnetic-text">
+                <p class="final-text">The Masterpiece is You.</p>
             </div>
         </section>
     </main>
 
+    <div class="vignette"></div>
     <script src="script.js"></script>
 </body>
 </html>
