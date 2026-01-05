@@ -2,116 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Architecture of Effort — Art of Work</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Muse — A Living Portrait</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Inter:wght@200;300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Italianno&family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="particleCanvas" class="art-layer"></canvas>
-    <canvas id="geometryCanvas" class="art-layer"></canvas>
-    <canvas id="threadCanvas" class="art-layer"></canvas>
-    <canvas id="auraCanvas" class="art-layer"></canvas>
+    <canvas id="artCanvas"></canvas>
     
-    <div id="ambientOverlay"></div>
+    <div class="texture-overlay"></div>
+    <div class="gradient-overlay"></div>
     
-    <div id="content">
-        <section class="narrative-section" data-chapter="0" data-theme="vision">
-            <div class="chapter-marker">0</div>
-            <div class="text-fragment" data-reveal-type="immediate">
-                <h1 class="title-text">ARCHITECTURE<br>OF EFFORT</h1>
-                <p class="subtitle-text">The aesthetics of productivity</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="idle" data-threshold="2000">
-                <p class="whisper-text">begin the build</p>
-            </div>
-        </section>
-
-        <section class="narrative-section" data-chapter="1" data-theme="foundation">
-            <div class="chapter-marker">I</div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="200">
-                <p class="fragment-text">Greatness is not an act</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.15">
-                <p class="fragment-text accent">But a habit forged in steel</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="180">
-                <p class="fragment-text">Routine is the canvas of mastery</p>
+    <main id="scroll-container">
+        <section class="chapter" data-palette="dawn">
+            <div class="content-wrapper">
+                <h1 class="script-title">The Masterpiece</h1>
+                <p class="subtitle">Art is not what I create.</p>
+                <div class="scroll-hint">
+                    <span>Touch to paint</span>
+                    <div class="line"></div>
+                </div>
             </div>
         </section>
 
-        <section class="narrative-section" data-chapter="2" data-theme="momentum">
-            <div class="chapter-marker">II</div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.3">
-                <p class="fragment-text">The world fades away</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="220">
-                <p class="fragment-text accent">Action merges with awareness</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="190">
-                <p class="fragment-text">Time dissolves into the task</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="idle" data-threshold="3000">
-                <p class="whisper-text">deep work</p>
+        <section class="chapter" data-palette="rose">
+            <div class="content-wrapper">
+                <p class="verse">It is the chaos</p>
+                <p class="verse accent">of your colors</p>
+                <p class="verse">bleeding into mine.</p>
             </div>
         </section>
 
-        <section class="narrative-section" data-chapter="3" data-theme="structure">
-            <div class="chapter-marker">III</div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="200">
-                <p class="fragment-text">Chaos tamed by design</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.45">
-                <p class="fragment-text">Every detail serves the whole</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="170">
-                <p class="fragment-text accent">Complexity resolved into simplicity</p>
+        <section class="chapter" data-palette="ocean">
+            <div class="content-wrapper">
+                <p class="verse">Every movement</p>
+                <p class="verse accent">a brushstroke</p>
+                <p class="verse">upon the silence.</p>
             </div>
         </section>
 
-        <section class="narrative-section" data-chapter="4" data-theme="synergy">
-            <div class="chapter-marker">IV</div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.6">
-                <p class="fragment-text">Ideas collide and ignite</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="210">
-                <p class="fragment-text">The network hums with life</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="180">
-                <p class="fragment-text accent">A collective intelligence awakens</p>
+        <section class="chapter" data-palette="gold">
+            <div class="content-wrapper">
+                <p class="verse">You are not</p>
+                <p class="verse">the image.</p>
+                <p class="verse accent">You are the light.</p>
             </div>
         </section>
 
-        <section class="narrative-section" data-chapter="5" data-theme="mastery">
-            <div class="chapter-marker">V</div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="200">
-                <p class="fragment-text">The work speaks for itself</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.8">
-                <p class="fragment-text accent">Polished until it reflects the soul</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="170">
-                <p class="fragment-text">This is the art of showing up</p>
+        <section class="chapter" data-palette="midnight">
+            <div class="content-wrapper">
+                <p class="final-text">Art of Work</p>
+                <p class="signature">For Her.</p>
             </div>
         </section>
-
-        <section class="narrative-section" data-chapter="6" data-theme="legacy">
-            <div class="chapter-marker">∞</div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.95">
-                <p class="fragment-text final">Create what endures</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="idle" data-threshold="5000">
-                <p class="whisper-text">sign your work</p>
-            </div>
-        </section>
-    </div>
-
-    <div id="hint" class="fade-out">
-        <p>Explore the blueprint</p>
-        <div class="hint-line"></div>
-    </div>
+    </main>
 
     <script src="script.js"></script>
 </body>
