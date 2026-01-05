@@ -1,249 +1,255 @@
 /**
- * THE MUSE ENGINE
- * A generative flow-field art system
- * Optimized for mobile performance and touch interaction
+ * CELESTIAL RESONANCE ENGINE
+ * A 3D interactive particle system with physics and mobile-responsiveness.
  */
 
-const canvas = document.getElementById('artCanvas');
-const ctx = canvas.getContext('2d', { alpha: false }); // Optimization
+const canvas = document.getElementById('cosmosCanvas');
+const ctx = canvas.getContext('2d');
 
-// ===== CONFIGURATION =====
-const config = {
-    particleCount: window.innerWidth < 768 ? 800 : 1500, // Fewer particles on mobile for FPS
-    baseSpeed: 1,
-    trailOpacity: 0.08, // Creates the watercolor bleed effect
-    interactionRadius: 150,
-    colorTransitionSpeed: 0.02
-};
-
-// ===== PALETTES =====
-// Each chapter has a distinct emotional color scheme
-const palettes = {
-    dawn:   { r: 255, g: 182, b: 193 }, // Light Pink
-    rose:   { r: 220, g: 20,  b: 60  }, // Crimson
-    ocean:  { r: 0,   g: 255, b: 255 }, // Cyan/Aqua
-    gold:   { r: 255, g: 215, b: 0   }, // Gold
-    midnight:{ r: 147, g: 112, b: 219 } // Purple
-};
-
-let currentState = {
-    width: 0,
-    height: 0,
+// ===== STATE & CONFIG =====
+const state = {
+    width: window.innerWidth,
+    height: window.innerHeight,
     particles: [],
-    flowField: [],
-    cols: 0,
-    rows: 0,
-    cellSize: 20,
-    zOff: 0, // Time dimension for noise
-    targetColor: palettes.dawn,
-    currentColor: { ...palettes.dawn },
-    mouse: { x: -1000, y: -1000, active: false }
+    cursor: { x: window.innerWidth/2, y: window.innerHeight/2, active: false },
+    tilt: { x: 0, y: 0 }, // For mobile gyroscope
+    scrollProgress: 0,
+    time: 0
 };
 
-// ===== NOISE FUNCTION (Simple pseudo-random) =====
-// Using a simple sin/cos mix for fluid motion without heavy libraries
-function noise(x, y, z) {
-    return Math.sin(x * 0.01 + z) + Math.cos(y * 0.01 + z) * Math.sin(z * 0.5);
-}
+const config = {
+    particleCount: window.innerWidth < 768 ? 400 : 900, // Optimize for mobile
+    connectionDist: 100,
+    baseSpeed: 0.5,
+    colors: ['#ffffff', '#ffd700', '#87ceeb', '#ffb7b2'] // Star colors
+};
 
-// ===== PARTICLE SYSTEM =====
-class Particle {
+// ===== RESIZE HANDLER =====
+function resize() {
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    canvas.width = state.width;
+    canvas.height = state.height;
+    // Re-init particles on drastic resize
+    if (state.particles.length === 0) initParticles();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ===== PARTICLE CLASS =====
+class Star {
     constructor() {
         this.reset();
-        // Start randomly on screen
-        this.pos.x = Math.random() * currentState.width;
-        this.pos.y = Math.random() * currentState.height;
+        // Start randomly in 3D space
+        this.z = Math.random() * 2000; 
     }
 
     reset() {
-        this.pos = { x: Math.random() * currentState.width, y: Math.random() * currentState.height };
-        this.vel = { x: 0, y: 0 };
-        this.acc = { x: 0, y: 0 };
-        this.maxSpeed = config.baseSpeed + Math.random();
-        this.prevPos = { ...this.pos };
-        this.width = Math.random() * 2 + 0.5; // Varied brush stroke width
-    }
-
-    follow(flowField) {
-        const x = Math.floor(this.pos.x / currentState.cellSize);
-        const y = Math.floor(this.pos.y / currentState.cellSize);
-        const index = x + y * currentState.cols;
-        
-        if (flowField[index]) {
-            const angle = flowField[index];
-            this.acc.x += Math.cos(angle) * 0.5;
-            this.acc.y += Math.sin(angle) * 0.5;
-        }
-    }
-
-    applyInteraction() {
-        if (!currentState.mouse.active) return;
-
-        const dx = currentState.mouse.x - this.pos.x;
-        const dy = currentState.mouse.y - this.pos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < config.interactionRadius) {
-            const force = (config.interactionRadius - dist) / config.interactionRadius;
-            const angle = Math.atan2(dy, dx);
-            // Push away/swirl effect
-            this.acc.x -= Math.cos(angle) * force * 2;
-            this.acc.y -= Math.sin(angle) * force * 2;
-        }
+        this.x = (Math.random() - 0.5) * state.width * 3;
+        this.y = (Math.random() - 0.5) * state.height * 3;
+        this.z = 2000; // Start far away
+        this.size = Math.random() * 2;
+        this.color = config.colors[Math.floor(Math.random() * config.colors.length)];
+        this.velZ = Math.random() * 2 + 1; // Z-axis speed
     }
 
     update() {
-        this.vel.x += this.acc.x;
-        this.vel.y += this.acc.y;
-        
-        // Limit speed
-        const speed = Math.sqrt(this.vel.x**2 + this.vel.y**2);
-        if (speed > this.maxSpeed) {
-            this.vel.x = (this.vel.x / speed) * this.maxSpeed;
-            this.vel.y = (this.vel.y / speed) * this.maxSpeed;
+        // Move towards camera
+        this.z -= this.velZ + (state.scrollProgress * 5);
+
+        // Interaction: Orbit around cursor
+        if (state.cursor.active) {
+            const dx = this.x - (state.cursor.x - state.width/2) * 2; // Adjust for 3D coordinate system
+            const dy = this.y - (state.cursor.y - state.height/2) * 2;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if (dist < 400) {
+                // Orbital physics
+                const angle = Math.atan2(dy, dx);
+                const force = (400 - dist) / 400;
+                
+                this.x -= Math.cos(angle + Math.PI/2) * force * 10;
+                this.y -= Math.sin(angle + Math.PI/2) * force * 10;
+            }
         }
 
-        this.prevPos.x = this.pos.x;
-        this.prevPos.y = this.pos.y;
-        
-        this.pos.x += this.vel.x;
-        this.pos.y += this.vel.y;
-        
-        this.acc.x = 0;
-        this.acc.y = 0;
+        // Mobile Tilt Parallax
+        this.x += state.tilt.x * 2;
+        this.y += state.tilt.y * 2;
 
-        // Wrap around edges
-        if (this.pos.x > currentState.width) { this.pos.x = 0; this.prevPos.x = 0; }
-        if (this.pos.x < 0) { this.pos.x = currentState.width; this.prevPos.x = currentState.width; }
-        if (this.pos.y > currentState.height) { this.pos.y = 0; this.prevPos.y = 0; }
-        if (this.pos.y < 0) { this.pos.y = currentState.height; this.prevPos.y = currentState.height; }
+        // Reset if passed camera
+        if (this.z <= 0) this.reset();
     }
 
     draw() {
-        ctx.beginPath();
-        ctx.moveTo(this.prevPos.x, this.prevPos.y);
-        ctx.lineTo(this.pos.x, this.pos.y);
+        // 3D Projection Math
+        // Perspective formula: screenX = x / z * focalLength
+        const focalLength = 400;
+        const scale = focalLength / (focalLength + this.z);
         
-        // Color blending
-        const c = currentState.currentColor;
-        // Vary alpha slightly for depth
-        ctx.strokeStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${Math.random() * 0.3 + 0.1})`;
-        ctx.lineWidth = this.width;
+        const sx = state.width/2 + this.x * scale;
+        const sy = state.height/2 + this.y * scale;
+        
+        // Don't draw if off screen
+        if (sx < 0 || sx > state.width || sy < 0 || sy > state.height) return;
+
+        ctx.beginPath();
+        ctx.arc(sx, sy, this.size * scale * 2, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        
+        // Glow effect based on proximity
+        const alpha = 1 - (this.z / 2000);
+        ctx.globalAlpha = alpha;
+        ctx.shadowBlur = 10 * scale;
+        ctx.shadowColor = this.color;
+        
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+
+        // Optional: Draw connections (constellations)
+        // Only for close stars to save performance
+        if (this.z < 500) {
+            this.drawConnections(sx, sy);
+        }
+    }
+
+    drawConnections(sx, sy) {
+        // Simple proximity check with random neighbors
+        // Note: Real O(N^2) check is too heavy, checking random subset
+        // or just letting the visual density handle it.
+        // Here we just draw a faint trail for "motion blur" feel
+        const length = this.velZ * 2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, sy + length);
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 0.5;
         ctx.stroke();
     }
 }
 
-// ===== ENGINE FUNCTIONS =====
-
-function init() {
-    currentState.width = window.innerWidth;
-    currentState.height = window.innerHeight;
-    canvas.width = currentState.width;
-    canvas.height = currentState.height;
-    
-    currentState.cols = Math.floor(currentState.width / currentState.cellSize);
-    currentState.rows = Math.floor(currentState.height / currentState.cellSize);
-    
-    // Create particles
-    currentState.particles = [];
-    for (let i = 0; i < config.particleCount; i++) {
-        currentState.particles.push(new Particle());
-    }
-
-    // Initial background
-    ctx.fillStyle = '#050505';
-    ctx.fillRect(0, 0, currentState.width, currentState.height);
-}
-
-function updateFlowField() {
-    currentState.zOff += 0.005; // Time moves forward
-    
-    for (let y = 0; y < currentState.rows; y++) {
-        for (let x = 0; x < currentState.cols; x++) {
-            const index = x + y * currentState.cols;
-            // Noise angle (multiply by PI*4 for full rotation)
-            const angle = noise(x, y, currentState.zOff) * Math.PI * 4;
-            // Guide vector
-            currentState.flowField[index] = angle;
-        }
+// ===== SYSTEM INIT =====
+function initParticles() {
+    state.particles = [];
+    for(let i = 0; i < config.particleCount; i++) {
+        state.particles.push(new Star());
     }
 }
+initParticles();
 
-function lerpColor() {
-    const c = currentState.currentColor;
-    const t = currentState.targetColor;
-    const speed = config.colorTransitionSpeed;
-    
-    c.r += (t.r - c.r) * speed;
-    c.g += (t.g - c.g) * speed;
-    c.b += (t.b - c.b) * speed;
-}
-
+// ===== ANIMATION LOOP =====
 function animate() {
-    // Fade out previous frames slightly to create trails
-    // Instead of clearRect, we draw a semi-transparent black rect
-    ctx.fillStyle = `rgba(5, 5, 5, ${config.trailOpacity})`;
-    ctx.fillRect(0, 0, currentState.width, currentState.height);
+    // Clear canvas with trail effect for "warp speed" feel
+    ctx.fillStyle = 'rgba(2, 2, 4, 0.3)';
+    ctx.fillRect(0, 0, state.width, state.height);
 
-    updateFlowField();
-    lerpColor();
-
-    currentState.particles.forEach(p => {
-        p.follow(currentState.flowField);
-        p.applyInteraction();
+    state.particles.forEach(p => {
         p.update();
         p.draw();
     });
 
     requestAnimationFrame(animate);
 }
+animate();
 
-// ===== EVENTS & INTERACTION =====
+// ===== INTERACTION EVENTS =====
 
-// Resize
-window.addEventListener('resize', () => {
-    // Debounce resize
-    clearTimeout(window.resizeTimeout);
-    window.resizeTimeout = setTimeout(init, 200);
-});
-
-// Scroll / Theme Change
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            const paletteName = entry.target.dataset.palette;
-            if (palettes[paletteName]) {
-                currentState.targetColor = palettes[paletteName];
-            }
+// 1. Scroll Progress
+window.addEventListener('scroll', () => {
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    state.scrollProgress = window.scrollY / docHeight;
+    
+    // Check chapter visibility
+    document.querySelectorAll('.chapter').forEach(chap => {
+        const rect = chap.getBoundingClientRect();
+        if (rect.top < window.innerHeight * 0.75 && rect.bottom > 0) {
+            chap.classList.add('in-view');
         }
     });
-}, { threshold: 0.4 });
+});
 
-document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
-
-// Mouse & Touch
-function updatePointer(x, y) {
-    currentState.mouse.x = x;
-    currentState.mouse.y = y;
-    currentState.mouse.active = true;
+// 2. Mouse/Touch Move (Magnetic)
+function updateCursor(x, y) {
+    state.cursor.x = x;
+    state.cursor.y = y;
+    state.cursor.active = true;
     
-    // Clear active state after inactivity
-    clearTimeout(window.pointerTimeout);
-    window.pointerTimeout = setTimeout(() => {
-        currentState.mouse.active = false;
+    // Magnetic Text Effect
+    document.querySelectorAll('.magnetic-text, .magnetic-btn').forEach(el => {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width/2;
+        const centerY = rect.top + rect.height/2;
+        
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < 200) {
+            const pull = 0.1;
+            el.style.transform = `translate(${dx * pull}px, ${dy * pull}px)`;
+        } else {
+            el.style.transform = 'translate(0, 0)';
+        }
+    });
+    
+    clearTimeout(window.cursorTimeout);
+    window.cursorTimeout = setTimeout(() => {
+        state.cursor.active = false;
+        // Reset text positions
+        document.querySelectorAll('.magnetic-text').forEach(el => {
+            el.style.transform = 'translate(0,0)';
+        });
     }, 1000);
 }
 
-window.addEventListener('mousemove', e => updatePointer(e.clientX, e.clientY));
+window.addEventListener('mousemove', e => updateCursor(e.clientX, e.clientY));
 window.addEventListener('touchmove', e => {
-    updatePointer(e.touches[0].clientX, e.touches[0].clientY);
-    // e.preventDefault(); // Optional: uncomment if scroll interference is an issue
-}, { passive: false });
+    updateCursor(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
 
-// Initialize
-init();
-animate();
+// 3. Mobile Gyroscope (Tilt)
+if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', e => {
+        // Normalizing tilt values
+        const x = e.gamma || 0; // Left/Right
+        const y = e.beta || 0;  // Front/Back
+        
+        // Smooth interpolation
+        state.tilt.x += (x - state.tilt.x) * 0.1;
+        state.tilt.y += (y - state.tilt.y) * 0.1;
+    });
+}
 
-// Console art
-console.log("%c The Muse ", "background: #222; color: #bada55; padding: 10px; border-radius: 5px;");
+// 4. Capture Feature
+document.getElementById('capture-btn').addEventListener('click', () => {
+    // 1. Temporarily render high-quality opaque background
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = state.width;
+    tempCanvas.height = state.height;
+    const tCtx = tempCanvas.getContext('2d');
+    
+    // Fill black background
+    tCtx.fillStyle = '#020204';
+    tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    
+    // Draw current canvas state over it
+    tCtx.drawImage(canvas, 0, 0);
+    
+    // Add watermark
+    tCtx.font = '20px Montserrat';
+    tCtx.fillStyle = 'rgba(255,255,255,0.5)';
+    tCtx.fillText('Celestial Resonance', 40, state.height - 40);
+
+    // Download
+    const link = document.createElement('a');
+    link.download = `celestial-moment-${Date.now()}.png`;
+    link.href = tempCanvas.toDataURL('image/png');
+    link.click();
+    
+    // Visual feedback
+    const btn = document.getElementById('capture-btn');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '✓';
+    setTimeout(() => btn.innerHTML = originalContent, 2000);
+});
