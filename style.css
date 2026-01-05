@@ -1,8 +1,8 @@
 /* ===== RESET & CORE ===== */
 :root {
-    --bg-color: #020204;
+    --bg-color: #020204; /* Deep Space Black */
     --text-color: #e0e0e0;
-    --accent-color: #ffd700;
+    --accent-color: #ffd700; /* Gold */
 }
 
 * {
@@ -10,7 +10,6 @@
     padding: 0;
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -19,17 +18,18 @@ body {
     font-family: 'Montserrat', sans-serif;
     overflow-x: hidden;
     overscroll-behavior: none;
-    cursor: none; /* Custom cursor feel */
+    cursor: default;
 }
 
-/* ===== CANVAS ===== */
+/* ===== CANVAS (Background) ===== */
 #cosmosCanvas {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    z-index: 1;
+    z-index: 1; /* Behind everything */
+    background: var(--bg-color); /* Fallback color */
 }
 
 .vignette {
@@ -43,7 +43,7 @@ body {
     z-index: 2;
 }
 
-/* ===== UI LAYER ===== */
+/* ===== UI LAYER (Buttons) ===== */
 #ui-layer {
     position: fixed;
     top: 2rem;
@@ -63,9 +63,8 @@ body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    position: relative;
-    overflow: visible;
+    transition: all 0.3s ease;
+    outline: none;
 }
 
 .magnetic-btn:hover {
@@ -74,15 +73,11 @@ body {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-.magnetic-btn svg {
-    pointer-events: none;
-}
-
 .tooltip {
     position: absolute;
     right: 60px;
     background: rgba(0, 0, 0, 0.8);
-    padding: 5px 10px;
+    padding: 6px 10px;
     border-radius: 4px;
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -97,7 +92,7 @@ body {
     opacity: 1;
 }
 
-/* ===== TYPOGRAPHY & LAYOUT ===== */
+/* ===== SCROLL CONTENT ===== */
 #scroll-container {
     position: relative;
     z-index: 10;
@@ -108,24 +103,26 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    perspective: 1000px; /* For 3D text effects */
+    perspective: 1000px;
+    padding: 20px;
 }
 
 .content-wrapper {
     text-align: center;
-    padding: 2rem;
     max-width: 800px;
-    opacity: 0;
-    transform: translateY(30px) translateZ(-100px);
-    transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-    mix-blend-mode: hard-light; /* Blends text creatively with stars */
+    opacity: 0; /* Hidden by default */
+    transform: translateY(30px) translateZ(-50px);
+    transition: opacity 1.5s ease, transform 1.5s ease-out;
+    mix-blend-mode: hard-light;
 }
 
+/* The class that makes text appear */
 .chapter.in-view .content-wrapper {
     opacity: 1;
     transform: translateY(0) translateZ(0);
 }
 
+/* Typography */
 .hero-title {
     font-family: 'Cormorant Garamond', serif;
     font-size: clamp(3.5rem, 12vw, 8rem);
@@ -135,7 +132,6 @@ body {
     background: linear-gradient(to bottom, #fff 40%, #a5a5a5 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
 }
 
 .subtitle {
@@ -173,7 +169,7 @@ body {
     padding-bottom: 1rem;
 }
 
-/* ===== INTERACTION HINTS ===== */
+/* Hints */
 .interaction-hint {
     margin-top: 2rem;
     font-size: 0.7rem;
@@ -187,7 +183,4 @@ body {
 @media (pointer: coarse) {
     .desktop-hint { display: none; }
     .mobile-hint { display: block; }
-    
-    /* Remove custom cursor on touch */
-    body { cursor: auto; }
 }
