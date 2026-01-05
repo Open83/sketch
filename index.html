@@ -3,156 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ephemeral — An Interactive Art Experience</title>
+    <title>The Architecture of Effort — Art of Work</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Raleway:wght@100;300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Inter:wght@200;300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Multi-layer canvas system -->
     <canvas id="particleCanvas" class="art-layer"></canvas>
     <canvas id="geometryCanvas" class="art-layer"></canvas>
     <canvas id="threadCanvas" class="art-layer"></canvas>
     <canvas id="auraCanvas" class="art-layer"></canvas>
     
-    <!-- Ambient gradient overlay -->
     <div id="ambientOverlay"></div>
     
-    <!-- Content container -->
     <div id="content">
-        <!-- Opening -->
-        <section class="narrative-section" data-chapter="0" data-theme="void">
-            <div class="chapter-marker">∞</div>
+        <section class="narrative-section" data-chapter="0" data-theme="vision">
+            <div class="chapter-marker">0</div>
             <div class="text-fragment" data-reveal-type="immediate">
-                <h1 class="title-text">EPHEMERAL</h1>
-                <p class="subtitle-text">a journey through presence</p>
+                <h1 class="title-text">ARCHITECTURE<br>OF EFFORT</h1>
+                <p class="subtitle-text">The aesthetics of productivity</p>
             </div>
             <div class="text-fragment" data-reveal-type="idle" data-threshold="2000">
-                <p class="whisper-text">move to begin</p>
+                <p class="whisper-text">begin the build</p>
             </div>
         </section>
 
-        <!-- Chapter 1: Awakening -->
-        <section class="narrative-section" data-chapter="1" data-theme="awakening">
+        <section class="narrative-section" data-chapter="1" data-theme="foundation">
             <div class="chapter-marker">I</div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="200">
-                <p class="fragment-text">In the space between breaths</p>
+                <p class="fragment-text">Greatness is not an act</p>
+            </div>
+            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.15">
+                <p class="fragment-text accent">But a habit forged in steel</p>
             </div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="180">
-                <p class="fragment-text">consciousness unfolds</p>
+                <p class="fragment-text">Routine is the canvas of mastery</p>
             </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.1">
-                <p class="fragment-text accent">like silk across water</p>
+        </section>
+
+        <section class="narrative-section" data-chapter="2" data-theme="momentum">
+            <div class="chapter-marker">II</div>
+            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.3">
+                <p class="fragment-text">The world fades away</p>
+            </div>
+            <div class="text-fragment" data-reveal-type="proximity" data-threshold="220">
+                <p class="fragment-text accent">Action merges with awareness</p>
+            </div>
+            <div class="text-fragment" data-reveal-type="proximity" data-threshold="190">
+                <p class="fragment-text">Time dissolves into the task</p>
             </div>
             <div class="text-fragment" data-reveal-type="idle" data-threshold="3000">
-                <p class="whisper-text">listen</p>
+                <p class="whisper-text">deep work</p>
             </div>
         </section>
 
-        <!-- Chapter 2: Connection -->
-        <section class="narrative-section" data-chapter="2" data-theme="connection">
-            <div class="chapter-marker">II</div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="220">
-                <p class="fragment-text">Every movement writes itself</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="190">
-                <p class="fragment-text">into the fabric of this moment</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.25">
-                <p class="fragment-text accent">You are the composer</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="160">
-                <p class="fragment-text">and the composition</p>
-            </div>
-        </section>
-
-        <!-- Chapter 3: Transformation -->
-        <section class="narrative-section" data-chapter="3" data-theme="transformation">
+        <section class="narrative-section" data-chapter="3" data-theme="structure">
             <div class="chapter-marker">III</div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.4">
-                <p class="fragment-text">Time bends here</p>
-            </div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="200">
-                <p class="fragment-text">stretching and contracting</p>
+                <p class="fragment-text">Chaos tamed by design</p>
+            </div>
+            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.45">
+                <p class="fragment-text">Every detail serves the whole</p>
             </div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="170">
-                <p class="fragment-text accent">with the rhythm of your attention</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="idle" data-threshold="4000">
-                <p class="whisper-text">pause and observe the transformation</p>
+                <p class="fragment-text accent">Complexity resolved into simplicity</p>
             </div>
         </section>
 
-        <!-- Chapter 4: Resonance -->
-        <section class="narrative-section" data-chapter="4" data-theme="resonance">
+        <section class="narrative-section" data-chapter="4" data-theme="synergy">
             <div class="chapter-marker">IV</div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="210">
-                <p class="fragment-text">What echoes in the silence?</p>
+            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.6">
+                <p class="fragment-text">Ideas collide and ignite</p>
             </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.55">
-                <p class="fragment-text">Threads of light and shadow</p>
+            <div class="text-fragment" data-reveal-type="proximity" data-threshold="210">
+                <p class="fragment-text">The network hums with life</p>
             </div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="180">
-                <p class="fragment-text">weaving patterns only you can see</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="150">
-                <p class="fragment-text accent">This is your constellation</p>
+                <p class="fragment-text accent">A collective intelligence awakens</p>
             </div>
         </section>
 
-        <!-- Chapter 5: Dissolution -->
-        <section class="narrative-section" data-chapter="5" data-theme="dissolution">
+        <section class="narrative-section" data-chapter="5" data-theme="mastery">
             <div class="chapter-marker">V</div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.7">
-                <p class="fragment-text">Boundaries dissolve</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="190">
-                <p class="fragment-text">Between creator and creation</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="proximity" data-threshold="160">
-                <p class="fragment-text accent">Between here and everywhere</p>
-            </div>
-            <div class="text-fragment" data-reveal-type="idle" data-threshold="3500">
-                <p class="whisper-text">becoming formless</p>
-            </div>
-        </section>
-
-        <!-- Chapter 6: Transcendence -->
-        <section class="narrative-section" data-chapter="6" data-theme="transcendence">
-            <div class="chapter-marker">VI</div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="200">
-                <p class="fragment-text">You have shaped infinity</p>
+                <p class="fragment-text">The work speaks for itself</p>
             </div>
-            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.85">
-                <p class="fragment-text">with nothing but presence</p>
+            <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.8">
+                <p class="fragment-text accent">Polished until it reflects the soul</p>
             </div>
             <div class="text-fragment" data-reveal-type="proximity" data-threshold="170">
-                <p class="fragment-text accent">And infinity has shaped you</p>
+                <p class="fragment-text">This is the art of showing up</p>
             </div>
         </section>
 
-        <!-- Closing -->
-        <section class="narrative-section" data-chapter="7" data-theme="void">
+        <section class="narrative-section" data-chapter="6" data-theme="legacy">
             <div class="chapter-marker">∞</div>
             <div class="text-fragment" data-reveal-type="scroll" data-threshold="0.95">
-                <p class="fragment-text final">The thread continues</p>
+                <p class="fragment-text final">Create what endures</p>
             </div>
             <div class="text-fragment" data-reveal-type="idle" data-threshold="5000">
-                <p class="whisper-text">even after you leave</p>
+                <p class="whisper-text">sign your work</p>
             </div>
         </section>
     </div>
 
-    <!-- Interaction hint -->
     <div id="hint" class="fade-out">
-        <p>Move your cursor to explore</p>
+        <p>Explore the blueprint</p>
         <div class="hint-line"></div>
-    </div>
-
-    <!-- Ambient sound indicator -->
-    <div id="sound-indicator">
-        <div class="pulse"></div>
     </div>
 
     <script src="script.js"></script>
