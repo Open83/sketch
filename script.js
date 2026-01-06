@@ -3,6 +3,7 @@ const ctx = canvas.getContext('2d');
 const nebulaCanvas = document.getElementById('nebulaCanvas');
 const nebulaCtx = nebulaCanvas.getContext('2d');
 
+// ===== STATE & CONFIG =====
 const state = {
     width: window.innerWidth,
     height: window.innerHeight,
@@ -35,61 +36,7 @@ const config = {
     }
 };
 
-function resize() {
-    state.width = window.innerWidth;
-    state.height = window.innerHeight;
-    canvas.width = state.width;
-    canvas.height = state.height;
-    nebulaCanvas.width = state.width;
-    nebulaCanvas.height = state.height;
-    if (state.particles.length === 0) initParticles();
-    drawNebula();
-}
-window.addEventListener('resize', resize);
-resize();
-
-function drawNebula() {
-    const theme = config.themes[state.theme];
-    nebulaCtx.fillStyle = theme.bg;
-    nebulaCtx.fillRect(0, 0, state.width, state.height);
-    
-    for (let i = 0; i < 3; i++) {
-        const gradient = nebulaCtx.createRadialGradient(
-            Math.random() * state.width, Math.random() * state.height, 0,
-            Math.random() * state.width, Math.random() * state.height, state.width * 0.5
-        );
-        gradient.addColorStop(0, theme.accent + '40');
-        gradient.addColorStop(0.5, theme.secondary + '20');
-        gradient.addColorStop(1, 'transparent');
-        nebulaCtx.fillStyle = gradient;
-        nebulaCtx.fillRect(0, 0, state.width, state.height);
-    }
-}
-
-class Ripple {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.radius = 0;
-        this.maxRadius = 150;
-        this.speed = 3;
-        this.opacity = 1;
-    }
-    update() {
-        this.radius += this.speed;
-        this.opacity = 1 - (this.radius / this.maxRadius);
-        return this.radius < this.maxRadius;
-    }
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = config.themes[state.theme].accent;
-        ctx.globalAlpha = this.opacity * 0.5;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-    }
-}
+// ===== CLASSES (Must be defined before init) =====
 
 class Star {
     constructor() {
@@ -116,11 +63,13 @@ class Star {
         const sx = state.width/2 + this.x * scale;
         const sy = state.height/2 + this.y * scale;
         if (sx < 0 || sx > state.width || sy < 0 || sy > state.height) return;
+        
         ctx.beginPath();
         ctx.arc(sx, sy, this.size * scale * 2, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
         ctx.globalAlpha = Math.min(1, (2000 - this.z) / 1000);
         ctx.fill();
+        
         if (state.cursor.active && !state.constellationMode) {
             const dx = sx - state.cursor.x;
             const dy = sy - state.cursor.y;
@@ -183,15 +132,28 @@ class ShootingStar {
     }
 }
 
-function initParticles() {
-    state.particles = [];
-    state.shootingStars = [];
-    for(let i = 0; i < config.particleCount; i++) {
-        state.particles.push(new Star());
+class Ripple {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 0;
+        this.maxRadius = 150;
+        this.speed = 3;
+        this.opacity = 1;
     }
-    const shootingStarCount = state.meteorShowerActive ? 10 : 2;
-    for(let i = 0; i < shootingStarCount; i++) {
-        state.shootingStars.push(new ShootingStar());
+    update() {
+        this.radius += this.speed;
+        this.opacity = 1 - (this.radius / this.maxRadius);
+        return this.radius < this.maxRadius;
+    }
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = config.themes[state.theme].accent;
+        ctx.globalAlpha = this.opacity * 0.5;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -248,6 +210,53 @@ class TextScramble {
     randomChar() {
         return this.chars[Math.floor(Math.random() * this.chars.length)];
     }
+}
+
+// ===== CORE FUNCTIONS =====
+
+function initParticles() {
+    state.particles = [];
+    state.shootingStars = [];
+    for(let i = 0; i < config.particleCount; i++) {
+        state.particles.push(new Star());
+    }
+    const shootingStarCount = state.meteorShowerActive ? 10 : 2;
+    for(let i = 0; i < shootingStarCount; i++) {
+        state.shootingStars.push(new ShootingStar());
+    }
+}
+
+function drawNebula() {
+    const theme = config.themes[state.theme];
+    nebulaCtx.fillStyle = theme.bg;
+    nebulaCtx.fillRect(0, 0, state.width, state.height);
+    
+    for (let i = 0; i < 3; i++) {
+        const gradient = nebulaCtx.createRadialGradient(
+            Math.random() * state.width, Math.random() * state.height, 0,
+            Math.random() * state.width, Math.random() * state.height, state.width * 0.5
+        );
+        gradient.addColorStop(0, theme.accent + '40');
+        gradient.addColorStop(0.5, theme.secondary + '20');
+        gradient.addColorStop(1, 'transparent');
+        nebulaCtx.fillStyle = gradient;
+        nebulaCtx.fillRect(0, 0, state.width, state.height);
+    }
+}
+
+function resize() {
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    canvas.width = state.width;
+    canvas.height = state.height;
+    nebulaCanvas.width = state.width;
+    nebulaCanvas.height = state.height;
+    
+    // Only init if empty, otherwise we just resize
+    if (state.particles.length === 0) {
+        initParticles();
+    }
+    drawNebula();
 }
 
 let lastTime = performance.now();
@@ -316,24 +325,6 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('in-view');
-            const textElements = entry.target.querySelectorAll('h1, .highlight, .final-text');
-            textElements.forEach(el => {
-                if(!el.classList.contains('text-visible')) {
-                    el.classList.add('text-visible');
-                    const scrambler = new TextScramble(el);
-                    scrambler.setText(el.getAttribute('data-value'));
-                }
-            });
-        }
-    });
-}, { threshold: 0.3 });
-
-document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
-
 function updateCursor(x, y) {
     state.cursor.x = x;
     state.cursor.y = y;
@@ -359,36 +350,13 @@ function updateCursor(x, y) {
     }, 2000);
 }
 
+// ===== EVENT LISTENERS & INIT =====
+
+window.addEventListener('resize', resize);
 window.addEventListener('mousemove', e => updateCursor(e.clientX, e.clientY));
 window.addEventListener('touchmove', e => {
     e.preventDefault();
     updateCursor(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: false });
-
-canvas.addEventListener('click', (e) => {
-    const x = e.clientX;
-    const y = e.clientY;
-    if (state.constellationMode) {
-        state.constellationPoints.push({ x, y });
-        state.stats.starsCreated++;
-        document.getElementById('stars-count').textContent = state.stats.starsCreated;
-    } else {
-        state.ripples.push(new Ripple(x, y));
-    }
-});
-
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const x = touch.clientX;
-    const y = touch.clientY;
-    if (state.constellationMode) {
-        state.constellationPoints.push({ x, y });
-        state.stats.starsCreated++;
-        document.getElementById('stars-count').textContent = state.stats.starsCreated;
-    } else {
-        state.ripples.push(new Ripple(x, y));
-    }
 }, { passive: false });
 
 window.addEventListener('scroll', () => {
@@ -396,6 +364,7 @@ window.addEventListener('scroll', () => {
     state.scrollProgress = window.scrollY / docHeight;
 });
 
+// UI Event Listeners
 document.getElementById('settings-btn').addEventListener('click', () => {
     document.getElementById('settings-panel').classList.toggle('open');
 });
@@ -515,6 +484,34 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     drawNebula();
 });
 
+// Canvas Interaction
+canvas.addEventListener('click', (e) => {
+    const x = e.clientX;
+    const y = e.clientY;
+    if (state.constellationMode) {
+        state.constellationPoints.push({ x, y });
+        state.stats.starsCreated++;
+        document.getElementById('stars-count').textContent = state.stats.starsCreated;
+    } else {
+        state.ripples.push(new Ripple(x, y));
+    }
+});
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const x = touch.clientX;
+    const y = touch.clientY;
+    if (state.constellationMode) {
+        state.constellationPoints.push({ x, y });
+        state.stats.starsCreated++;
+        document.getElementById('stars-count').textContent = state.stats.starsCreated;
+    } else {
+        state.ripples.push(new Ripple(x, y));
+    }
+}, { passive: false });
+
+// Gyroscope
 if (window.DeviceOrientationEvent) {
     window.addEventListener('deviceorientation', e => {
         state.tilt.x += ((e.gamma || 0) - state.tilt.x) * 0.1;
@@ -522,5 +519,25 @@ if (window.DeviceOrientationEvent) {
     });
 }
 
-initParticles();
+// Observer for Text Scramble
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('in-view');
+            const textElements = entry.target.querySelectorAll('h1, .highlight, .final-text');
+            textElements.forEach(el => {
+                if(!el.classList.contains('text-visible')) {
+                    el.classList.add('text-visible');
+                    const scrambler = new TextScramble(el);
+                    scrambler.setText(el.getAttribute('data-value'));
+                }
+            });
+        }
+    });
+}, { threshold: 0.3 });
+
+document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
+
+// STARTUP CALLS (Must be at the very end)
+resize();
 animate();
