@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Celestial Resonance — Enhanced Experience</title>
+    <title>Celestial Resonance — Mobile Enhanced</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,400&family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
@@ -37,20 +37,6 @@
                 <circle cx="12" cy="13" r="4"></circle>
             </svg>
             <span class="tooltip">Capture</span>
-        </button>
-        
-        <button id="constellation-mode-btn" class="magnetic-btn" aria-label="Draw">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.5" fill="none">
-                <circle cx="12" cy="5" r="1" fill="currentColor"></circle>
-                <circle cx="5" cy="12" r="1" fill="currentColor"></circle>
-                <circle cx="19" cy="12" r="1" fill="currentColor"></circle>
-                <circle cx="12" cy="19" r="1" fill="currentColor"></circle>
-                <line x1="12" y1="5" x2="5" y2="12"></line>
-                <line x1="5" y1="12" x2="12" y2="19"></line>
-                <line x1="12" y1="19" x2="19" y2="12"></line>
-                <line x1="19" y1="12" x2="12" y2="5"></line>
-            </svg>
-            <span class="tooltip">Draw</span>
         </button>
         
         <button id="fullscreen-btn" class="magnetic-btn" aria-label="Fullscreen">
@@ -103,18 +89,7 @@
         </div>
     </div>
     
-    <div id="constellation-ui">
-        <span style="opacity: 0.7; font-size: 0.7rem; letter-spacing: 0.1em;">DRAW MODE</span>
-        <button id="clear-constellation-btn" class="constellation-btn">Clear</button>
-        <button id="save-constellation-btn" class="constellation-btn">Save</button>
-        <button id="exit-constellation-btn" class="constellation-btn">Exit</button>
-    </div>
-    
     <div id="stats-overlay">
-        <div class="stat-item">
-            <span class="stat-label">Stars</span>
-            <span class="stat-value" id="stars-count">0</span>
-        </div>
         <div class="stat-item">
             <span class="stat-label">Time</span>
             <span class="stat-value" id="time-count">0:00</span>
@@ -131,7 +106,8 @@
                 <h1 class="hero-title" data-value="Celestial Resonance">Celestial Resonance</h1>
                 <p class="subtitle">A universe woven from attention</p>
                 <div class="interaction-hint">
-                    <span>Move cursor • Click to create ripples</span>
+                    <span class="desktop-hint">Move cursor to orbit</span>
+                    <span class="mobile-hint">Scroll to explore</span>
                 </div>
             </div>
         </section>
