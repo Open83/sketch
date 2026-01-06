@@ -4,29 +4,25 @@ const ctx = canvas.getContext('2d');
 const nebulaCanvas = document.getElementById('nebulaCanvas');
 const nebulaCtx = nebulaCanvas.getContext('2d');
 
-// ===== STATE =====
+// ===== STATE & CONFIG =====
 const state = {
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: 0,
+    height: 0,
+    pixelRatio: 1, // Crucial for HD Mobile
     particles: [],
-    shootingStars: [],
-    ripples: [],
-    cursor: { x: window.innerWidth/2, y: window.innerHeight/2, active: false, down: false },
+    sparkles: [], // New interaction particle
+    cursor: { x: -1000, y: -1000, down: false, active: false },
     tilt: { x: 0, y: 0 },
     scrollProgress: 0,
     frameCount: 0,
-    performanceMode: false,
-    theme: 'cosmic',
-    warpFactor: 0
+    theme: 'cosmic'
 };
 
-// Configuration
 const config = {
-    // Reduce particle count on mobile (300) vs desktop (800)
-    particleCount: window.innerWidth < 768 ? 300 : 800,
+    particleCount: window.innerWidth < 768 ? 400 : 900,
     starColors: ['#ffffff', '#fff4e6', '#ffd700', '#87ceeb'],
-    connectionRadius: window.innerWidth < 768 ? 100 : 250,
-    baseSpeed: 1,
+    connectionRadius: window.innerWidth < 768 ? 80 : 200, // Reduced for mobile perf
+    baseSpeed: 0.5,
     themes: {
         cosmic: { bg: '#020204', accent: '#ffd700', secondary: '#87ceeb' },
         aurora: { bg: '#0f2027', accent: '#4ecdc4', secondary: '#95e1d3' },
@@ -35,7 +31,7 @@ const config = {
     }
 };
 
-// ===== CLASSES (Defined Top-Level) =====
+// ===== CLASSES =====
 
 class Star {
     constructor() { this.reset(true); }
@@ -44,19 +40,21 @@ class Star {
         this.x = (Math.random() - 0.5) * state.width * 2;
         this.y = (Math.random() - 0.5) * state.height * 2;
         this.z = randomZ ? Math.random() * 2000 : 2000;
-        this.size = Math.random() * 1.5;
+        this.size = Math.random() * 2; // Base size
         this.color = config.starColors[Math.floor(Math.random() * config.starColors.length)];
-        this.velZ = Math.random() * 2 + 0.5;
+        this.velZ = Math.random() * 1.5 + 0.2;
+        this.twinkleOffset = Math.random() * Math.PI * 2;
+        this.twinkleSpeed = Math.random() * 0.05 + 0.02;
     }
     
     update() {
-        // WARP SPEED LOGIC: Increase speed if cursor is down (Long Press)
-        let speed = this.velZ + (state.scrollProgress * 8);
-        if (state.cursor.down) speed += 30; // Warp speed!
+        // Warp logic
+        let speed = (this.velZ + (state.scrollProgress * 5)) * config.baseSpeed;
+        if (state.cursor.down) speed += 20; // Hyper speed on hold
         
-        this.z -= speed * config.baseSpeed;
+        this.z -= speed;
         
-        // Mobile Parallax
+        // Mobile Gyro Parallax
         this.x += state.tilt.x * 0.5;
         this.y += state.tilt.y * 0.5;
         
@@ -64,23 +62,36 @@ class Star {
     }
     
     draw() {
-        if (state.performanceMode && Math.random() > 0.6) return;
-        
-        const focalLength = 300;
+        // 3D Projection
+        const focalLength = 400;
         const scale = focalLength / (focalLength + this.z);
         const sx = state.width/2 + this.x * scale;
         const sy = state.height/2 + this.y * scale;
         
+        // Culling
         if (sx < 0 || sx > state.width || sy < 0 || sy > state.height) return;
         
+        // Twinkle Effect
+        const twinkle = Math.sin(state.frameCount * this.twinkleSpeed + this.twinkleOffset);
+        const alpha = Math.min(1, ((2000 - this.z) / 1000) * (0.7 + twinkle * 0.3));
+        
         ctx.beginPath();
-        ctx.arc(sx, sy, this.size * scale * 2, 0, Math.PI * 2);
+        // Adjust size by pixel ratio for crispness
+        const r = this.size * scale; 
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
-        ctx.globalAlpha = Math.min(1, (2000 - this.z) / 1000);
+        ctx.globalAlpha = alpha;
         ctx.fill();
         
-        // Connections (Constellations) - Only if not moving too fast
-        if (state.cursor.active && !state.cursor.down) {
+        // Auto Constellations (Cosmic Web)
+        // Check neighbors for auto-connection (expensive, so limited)
+        if (state.frameCount % 2 === 0 && this.z < 1000) { 
+            // Only connect stars close to screen for performance
+           // (Implementation omitted for pure performance on mobile, replaced by interactions)
+        }
+        
+        // Cursor/Touch Connections
+        if (state.cursor.active) {
             const dx = sx - state.cursor.x;
             const dy = sy - state.cursor.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
@@ -90,7 +101,7 @@ class Star {
                 ctx.moveTo(sx, sy);
                 ctx.lineTo(state.cursor.x, state.cursor.y);
                 ctx.strokeStyle = this.color;
-                ctx.globalAlpha = (1 - dist / config.connectionRadius) * 0.3;
+                ctx.globalAlpha = (1 - dist / config.connectionRadius) * 0.4;
                 ctx.lineWidth = 0.5;
                 ctx.stroke();
             }
@@ -99,24 +110,26 @@ class Star {
     }
 }
 
-class Ripple {
+class Sparkle {
     constructor(x, y) {
         this.x = x; this.y = y;
-        this.radius = 0;
-        this.alpha = 1;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.life = 1;
+        this.color = config.starColors[Math.floor(Math.random() * config.starColors.length)];
+        this.size = Math.random() * 3 + 1;
     }
     update() {
-        this.radius += 4;
-        this.alpha -= 0.02;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.02;
     }
     draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = config.themes[state.theme].accent;
-        ctx.globalAlpha = this.alpha;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+        ctx.fill();
     }
 }
 
@@ -172,11 +185,38 @@ class TextScramble {
     randomChar() { return this.chars[Math.floor(Math.random() * this.chars.length)]; }
 }
 
-// ===== FUNCTIONS =====
+// ===== CORE FUNCTIONS =====
 
 function initParticles() {
     state.particles = [];
     for(let i = 0; i < config.particleCount; i++) state.particles.push(new Star());
+}
+
+function resize() {
+    // 1. Get Visual Dimensions
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    state.pixelRatio = window.devicePixelRatio || 1;
+
+    // 2. Set Canvas Size (Scaled for HD)
+    canvas.width = state.width * state.pixelRatio;
+    canvas.height = state.height * state.pixelRatio;
+    
+    nebulaCanvas.width = state.width * state.pixelRatio;
+    nebulaCanvas.height = state.height * state.pixelRatio;
+
+    // 3. Normalize Scale
+    ctx.scale(state.pixelRatio, state.pixelRatio);
+    nebulaCtx.scale(state.pixelRatio, state.pixelRatio);
+
+    // 4. Mobile Adjustments
+    if (state.width < 768) {
+        config.particleCount = 450;
+        config.connectionRadius = 90;
+    }
+
+    if (state.particles.length === 0) initParticles();
+    drawNebula();
 }
 
 function drawNebula() {
@@ -184,59 +224,40 @@ function drawNebula() {
     nebulaCtx.fillStyle = theme.bg;
     nebulaCtx.fillRect(0, 0, state.width, state.height);
     
-    for (let i = 0; i < 3; i++) {
-        const gradient = nebulaCtx.createRadialGradient(
-            Math.random() * state.width, Math.random() * state.height, 0,
-            Math.random() * state.width, Math.random() * state.height, state.width * 0.6
-        );
-        gradient.addColorStop(0, theme.accent + '33'); // 20% opacity hex
-        gradient.addColorStop(1, 'transparent');
-        nebulaCtx.fillStyle = gradient;
-        nebulaCtx.fillRect(0, 0, state.width, state.height);
-    }
-}
-
-function resize() {
-    state.width = window.innerWidth;
-    state.height = window.innerHeight;
-    canvas.width = state.width;
-    canvas.height = state.height;
-    nebulaCanvas.width = state.width;
-    nebulaCanvas.height = state.height;
+    // Smooth gradients
+    const gradient = nebulaCtx.createRadialGradient(
+        state.width/2, state.height/2, 0,
+        state.width/2, state.height/2, state.height
+    );
+    gradient.addColorStop(0, theme.accent + '20'); // 12% opacity
+    gradient.addColorStop(0.5, theme.secondary + '10');
+    gradient.addColorStop(1, 'transparent');
     
-    // Auto-adjust for mobile
-    if (state.width < 768) {
-        config.particleCount = 300;
-        config.connectionRadius = 100;
-    } else {
-        config.particleCount = 800;
-        config.connectionRadius = 250;
-    }
-    
-    if(state.particles.length === 0) initParticles();
-    drawNebula();
+    nebulaCtx.fillStyle = gradient;
+    nebulaCtx.fillRect(0, 0, state.width, state.height);
 }
 
 function animate() {
-    // Trails
-    ctx.fillStyle = state.cursor.down ? 'rgba(2, 2, 4, 0.1)' : 'rgba(2, 2, 4, 0.3)';
+    // Fade trail
+    ctx.fillStyle = `rgba(2, 2, 4, ${state.cursor.down ? 0.2 : 0.4})`;
     ctx.fillRect(0, 0, state.width, state.height);
 
+    // Update Stars
     state.particles.forEach(p => { p.update(); p.draw(); });
-    
-    // Manage Ripples
-    for (let i = state.ripples.length - 1; i >= 0; i--) {
-        const r = state.ripples[i];
-        r.update();
-        r.draw();
-        if (r.alpha <= 0) state.ripples.splice(i, 1);
+
+    // Update Sparkles
+    for (let i = state.sparkles.length - 1; i >= 0; i--) {
+        const s = state.sparkles[i];
+        s.update();
+        s.draw();
+        if (s.life <= 0) state.sparkles.splice(i, 1);
     }
 
     state.frameCount++;
     requestAnimationFrame(animate);
 }
 
-// ===== INPUT HANDLING =====
+// ===== INTERACTION =====
 
 // Scroll
 window.addEventListener('scroll', () => {
@@ -245,37 +266,40 @@ window.addEventListener('scroll', () => {
 });
 
 // Resize
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => {
+    resize();
+    // Re-draw nebula immediately on resize
+    drawNebula(); 
+});
 
-// Mouse/Touch Move
+// Move
 function onMove(x, y) {
     state.cursor.x = x;
     state.cursor.y = y;
     state.cursor.active = true;
-    
-    // Clear active state after 2s of inactivity
     clearTimeout(window.cursorTimeout);
-    window.cursorTimeout = setTimeout(() => state.cursor.active = false, 2000);
+    window.cursorTimeout = setTimeout(() => state.cursor.active = false, 2500);
 }
-
 window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
-// IMPORTANT: Passive listener for mobile scroll support
 window.addEventListener('touchmove', e => onMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
 
-// Mouse/Touch Down (Warp & Ripple)
-function onDown(x, y) {
+// Tap/Click (Sparkles + Warp Start)
+function onStart(x, y) {
     state.cursor.down = true;
-    state.ripples.push(new Ripple(x, y));
+    state.cursor.x = x;
+    state.cursor.y = y;
+    
+    // Spawn sparkles
+    for(let i=0; i<8; i++) {
+        state.sparkles.push(new Sparkle(x, y));
+    }
 }
+function onEnd() { state.cursor.down = false; }
 
-function onUp() {
-    state.cursor.down = false;
-}
-
-window.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
-window.addEventListener('touchstart', e => onDown(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-window.addEventListener('mouseup', onUp);
-window.addEventListener('touchend', onUp);
+window.addEventListener('mousedown', e => onStart(e.clientX, e.clientY));
+window.addEventListener('touchstart', e => onStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+window.addEventListener('mouseup', onEnd);
+window.addEventListener('touchend', onEnd);
 
 // Gyroscope
 if (window.DeviceOrientationEvent) {
@@ -285,7 +309,7 @@ if (window.DeviceOrientationEvent) {
     });
 }
 
-// ===== UI LOGIC =====
+// Intersection Observer (Text Reveal)
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -298,17 +322,14 @@ const observer = new IntersectionObserver((entries) => {
             });
         }
     });
-}, { threshold: 0.2 }); // Trigger earlier on mobile
-
+}, { threshold: 0.2 });
 document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
 
-// Settings Panel Toggle
+// UI Events
 document.getElementById('settings-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     document.getElementById('settings-panel').classList.toggle('open');
 });
-
-// Close settings if clicking outside
 document.addEventListener('click', (e) => {
     const panel = document.getElementById('settings-panel');
     const btn = document.getElementById('settings-btn');
@@ -317,17 +338,13 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Controls
+// Settings Logic
 document.getElementById('particle-slider').addEventListener('input', e => {
     config.particleCount = parseInt(e.target.value);
     initParticles();
 });
 document.getElementById('speed-slider').addEventListener('input', e => {
     config.baseSpeed = parseFloat(e.target.value);
-});
-document.getElementById('performance-mode-btn').addEventListener('click', function() {
-    state.performanceMode = !state.performanceMode;
-    this.classList.toggle('active');
 });
 document.querySelectorAll('.color-option').forEach(opt => {
     opt.addEventListener('click', () => {
@@ -341,22 +358,22 @@ document.querySelectorAll('.color-option').forEach(opt => {
     });
 });
 document.getElementById('reset-btn').addEventListener('click', () => {
-    resize(); // Resets to defaults based on screen size
-    config.baseSpeed = 1;
+    config.baseSpeed = 0.5;
     document.getElementById('speed-slider').value = 1;
-    document.getElementById('particle-slider').value = config.particleCount;
+    resize();
 });
-
-// Capture
 document.getElementById('capture-btn').addEventListener('click', () => {
     const tCanvas = document.createElement('canvas');
-    tCanvas.width = state.width; tCanvas.height = state.height;
+    tCanvas.width = state.width * state.pixelRatio;
+    tCanvas.height = state.height * state.pixelRatio;
     const tCtx = tCanvas.getContext('2d');
+    
+    // Draw background
+    tCtx.fillStyle = config.themes[state.theme].bg;
+    tCtx.fillRect(0, 0, tCanvas.width, tCanvas.height);
+    
     tCtx.drawImage(nebulaCanvas, 0, 0);
     tCtx.drawImage(canvas, 0, 0);
-    tCtx.font = '30px Montserrat';
-    tCtx.fillStyle = '#ffffff';
-    tCtx.fillText('Celestial Resonance', 40, state.height - 40);
     
     const link = document.createElement('a');
     link.download = `cosmos-${Date.now()}.png`;
@@ -364,6 +381,6 @@ document.getElementById('capture-btn').addEventListener('click', () => {
     link.click();
 });
 
-// Start
+// Init
 resize();
 animate();
