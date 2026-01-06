@@ -13,12 +13,10 @@ const state = {
     tilt: { x: 0, y: 0 },
     scrollProgress: 0,
     frameCount: 0,
-    constellationMode: false,
-    constellationPoints: [],
     ripples: [],
     meteorShowerActive: false,
     theme: 'cosmic',
-    stats: { starsCreated: 0, startTime: Date.now(), fps: 60 },
+    stats: { startTime: Date.now(), fps: 60 },
     fullscreen: false,
     performanceMode: false
 };
@@ -26,7 +24,7 @@ const state = {
 const config = {
     particleCount: window.innerWidth < 768 ? 400 : 850,
     starColors: ['#ffffff', '#fff4e6', '#ffd700', '#87ceeb'],
-    connectionRadius: 250,
+    connectionRadius: window.innerWidth < 768 ? 150 : 250,
     animationSpeed: 1,
     themes: {
         cosmic: { bg: '#020204', accent: '#ffd700', secondary: '#87ceeb' },
@@ -36,7 +34,7 @@ const config = {
     }
 };
 
-// ===== CLASSES (Must be defined before init) =====
+// ===== CLASSES (Defined FIRST to prevent ReferenceError) =====
 
 class Star {
     constructor() {
@@ -52,28 +50,38 @@ class Star {
     }
     update() {
         this.z -= (this.velZ + (state.scrollProgress * 8)) * config.animationSpeed;
-        this.x += state.tilt.x * 0.1;
-        this.y += state.tilt.y * 0.1;
+        
+        // Mobile Parallax via Tilt
+        this.x += state.tilt.x * 0.5;
+        this.y += state.tilt.y * 0.5;
+        
         if (this.z <= 0) this.reset();
     }
     draw() {
         if (state.performanceMode && Math.random() > 0.7) return;
+        
         const focalLength = 300;
         const scale = focalLength / (focalLength + this.z);
         const sx = state.width/2 + this.x * scale;
         const sy = state.height/2 + this.y * scale;
+        
+        // Skip off-screen
         if (sx < 0 || sx > state.width || sy < 0 || sy > state.height) return;
         
         ctx.beginPath();
         ctx.arc(sx, sy, this.size * scale * 2, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
+        
+        // Fade out based on depth
         ctx.globalAlpha = Math.min(1, (2000 - this.z) / 1000);
         ctx.fill();
         
-        if (state.cursor.active && !state.constellationMode) {
+        // Mouse connection lines
+        if (state.cursor.active) {
             const dx = sx - state.cursor.x;
             const dy = sy - state.cursor.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
+            
             if (dist < config.connectionRadius) {
                 ctx.beginPath();
                 ctx.moveTo(sx, sy);
@@ -105,6 +113,7 @@ class ShootingStar {
         if (this.active) {
             this.x -= this.speed * Math.cos(this.angle);
             this.y += this.speed * Math.sin(this.angle);
+            
             if (this.x < -100 || this.y > state.height + 100) {
                 this.active = false;
                 this.waitTime = Date.now() + Math.random() * (state.meteorShowerActive ? 500 : 5000);
@@ -118,11 +127,14 @@ class ShootingStar {
     }
     draw() {
         if (!this.active) return;
+        
         const endX = this.x + this.len * Math.cos(this.angle);
         const endY = this.y - this.len * Math.sin(this.angle);
+        
         const grad = ctx.createLinearGradient(this.x, this.y, endX, endY);
         grad.addColorStop(0, "rgba(255,255,255,1)");
         grad.addColorStop(1, "rgba(255,255,255,0)");
+        
         ctx.strokeStyle = grad;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -168,6 +180,7 @@ class TextScramble {
         const oldText = this.el.innerText;
         const length = Math.max(oldText.length, newText.length);
         const promise = new Promise((resolve) => this.resolve = resolve);
+        
         this.queue = [];
         for (let i = 0; i < length; i++) {
             const from = oldText[i] || '';
@@ -176,6 +189,7 @@ class TextScramble {
             const end = start + Math.floor(Math.random() * 40);
             this.queue.push({ from, to, start, end });
         }
+        
         cancelAnimationFrame(this.frameRequest);
         this.frame = 0;
         this.update();
@@ -184,8 +198,10 @@ class TextScramble {
     update() {
         let output = '';
         let complete = 0;
+        
         for (let i = 0, n = this.queue.length; i < n; i++) {
             let { from, to, start, end, char } = this.queue[i];
+            
             if (this.frame >= end) {
                 complete++;
                 output += to;
@@ -199,7 +215,9 @@ class TextScramble {
                 output += from;
             }
         }
+        
         this.el.innerHTML = output;
+        
         if (complete === this.queue.length) {
             this.resolve();
         } else {
@@ -212,7 +230,7 @@ class TextScramble {
     }
 }
 
-// ===== CORE FUNCTIONS =====
+// ===== FUNCTIONS =====
 
 function initParticles() {
     state.particles = [];
@@ -231,6 +249,7 @@ function drawNebula() {
     nebulaCtx.fillStyle = theme.bg;
     nebulaCtx.fillRect(0, 0, state.width, state.height);
     
+    // Simple gradient nebulae
     for (let i = 0; i < 3; i++) {
         const gradient = nebulaCtx.createRadialGradient(
             Math.random() * state.width, Math.random() * state.height, 0,
@@ -252,7 +271,9 @@ function resize() {
     nebulaCanvas.width = state.width;
     nebulaCanvas.height = state.height;
     
-    // Only init if empty, otherwise we just resize
+    config.connectionRadius = state.width < 768 ? 150 : 250;
+    
+    // Init if empty, otherwise just update canvas
     if (state.particles.length === 0) {
         initParticles();
     }
@@ -281,6 +302,7 @@ function updateTime() {
 }
 
 function animate() {
+    // Clear trail
     ctx.fillStyle = 'rgba(2, 2, 4, 0.3)';
     ctx.fillRect(0, 0, state.width, state.height);
 
@@ -294,30 +316,12 @@ function animate() {
         s.draw();
     });
     
+    // Ripples
     state.ripples = state.ripples.filter(ripple => {
         const alive = ripple.update();
         if (alive) ripple.draw();
         return alive;
     });
-    
-    if (state.constellationMode && state.constellationPoints.length > 0) {
-        ctx.strokeStyle = config.themes[state.theme].accent;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.6;
-        for (let i = 0; i < state.constellationPoints.length - 1; i++) {
-            ctx.beginPath();
-            ctx.moveTo(state.constellationPoints[i].x, state.constellationPoints[i].y);
-            ctx.lineTo(state.constellationPoints[i + 1].x, state.constellationPoints[i + 1].y);
-            ctx.stroke();
-        }
-        state.constellationPoints.forEach(point => {
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-            ctx.fillStyle = config.themes[state.theme].accent;
-            ctx.fill();
-        });
-        ctx.globalAlpha = 1;
-    }
 
     state.frameCount++;
     updateFPS();
@@ -329,9 +333,12 @@ function updateCursor(x, y) {
     state.cursor.x = x;
     state.cursor.y = y;
     state.cursor.active = true;
+    
+    // Magnetic Buttons (Desktop only mostly, but kept for logic)
     document.querySelectorAll('.magnetic-btn, .magnetic-text').forEach(el => {
         const rect = el.getBoundingClientRect();
         const dist = Math.hypot(x - (rect.left + rect.width/2), y - (rect.top + rect.height/2));
+        
         if (dist < 150) {
             const pull = 0.15;
             const dx = (x - (rect.left + rect.width/2)) * pull;
@@ -341,6 +348,7 @@ function updateCursor(x, y) {
             el.style.transform = 'translate(0,0)';
         }
     });
+
     clearTimeout(window.cursorTimeout);
     window.cursorTimeout = setTimeout(() => {
         state.cursor.active = false;
@@ -350,84 +358,84 @@ function updateCursor(x, y) {
     }, 2000);
 }
 
-// ===== EVENT LISTENERS & INIT =====
+// ===== EVENT LISTENERS =====
 
 window.addEventListener('resize', resize);
-window.addEventListener('mousemove', e => updateCursor(e.clientX, e.clientY));
-window.addEventListener('touchmove', e => {
-    e.preventDefault();
-    updateCursor(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: false });
 
+window.addEventListener('mousemove', e => updateCursor(e.clientX, e.clientY));
+
+// FIXED: Passive listener allows scrolling on mobile!
+window.addEventListener('touchmove', e => {
+    // We do NOT preventDefault here anymore, allowing page scroll.
+    updateCursor(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+
+// Interaction: Click to Ripple
+canvas.addEventListener('click', (e) => {
+    // Only create ripple if we are not clicking UI
+    state.ripples.push(new Ripple(e.clientX, e.clientY));
+});
+
+// Scroll Progress
 window.addEventListener('scroll', () => {
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
     state.scrollProgress = window.scrollY / docHeight;
 });
 
-// UI Event Listeners
-document.getElementById('settings-btn').addEventListener('click', () => {
+// UI: Settings Panel
+document.getElementById('settings-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
     document.getElementById('settings-panel').classList.toggle('open');
 });
 
 document.addEventListener('click', (e) => {
     const panel = document.getElementById('settings-panel');
     const btn = document.getElementById('settings-btn');
-    if (!panel.contains(e.target) && !btn.contains(e.target)) {
+    if (panel.classList.contains('open') && !panel.contains(e.target) && !btn.contains(e.target)) {
         panel.classList.remove('open');
     }
 });
 
+// UI: Capture
 document.getElementById('capture-btn').addEventListener('click', () => {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = state.width;
     tempCanvas.height = state.height;
     const tCtx = tempCanvas.getContext('2d');
+    
+    // Composite Nebula + Stars
     tCtx.drawImage(nebulaCanvas, 0, 0);
     tCtx.drawImage(canvas, 0, 0);
+    
+    // Add Watermark
     tCtx.font = '30px Cormorant Garamond';
     tCtx.fillStyle = config.themes[state.theme].accent;
     tCtx.fillText('Celestial Resonance', 50, state.height - 50);
+
     const link = document.createElement('a');
     link.download = `cosmos-${Date.now()}.png`;
     link.href = tempCanvas.toDataURL();
     link.click();
 });
 
-document.getElementById('constellation-mode-btn').addEventListener('click', () => {
-    state.constellationMode = !state.constellationMode;
-    document.getElementById('constellation-mode-btn').classList.toggle('active');
-    document.getElementById('constellation-ui').classList.toggle('active');
-});
-
-document.getElementById('clear-constellation-btn').addEventListener('click', () => {
-    state.constellationPoints = [];
-});
-
-document.getElementById('save-constellation-btn').addEventListener('click', () => {
-    if (state.constellationPoints.length > 0) {
-        const data = JSON.stringify(state.constellationPoints);
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `constellation-${Date.now()}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-    }
-});
-
-document.getElementById('exit-constellation-btn').addEventListener('click', () => {
-    state.constellationMode = false;
-    document.getElementById('constellation-mode-btn').classList.remove('active');
-    document.getElementById('constellation-ui').classList.remove('active');
-});
-
+// UI: Fullscreen
 document.getElementById('fullscreen-btn').addEventListener('click', () => {
     state.fullscreen = !state.fullscreen;
     document.body.classList.toggle('fullscreen');
     document.getElementById('fullscreen-btn').classList.toggle('active');
+    
+    if (state.fullscreen) {
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
 });
 
+// Settings Inputs
 document.getElementById('particle-slider').addEventListener('input', (e) => {
     config.particleCount = parseInt(e.target.value);
     initParticles();
@@ -471,47 +479,25 @@ document.getElementById('reset-btn').addEventListener('click', () => {
     state.theme = 'cosmic';
     state.meteorShowerActive = false;
     state.performanceMode = false;
+    
     document.getElementById('particle-slider').value = 850;
     document.getElementById('speed-slider').value = 1;
     document.getElementById('connection-slider').value = 250;
+    
     document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
     document.querySelector('[data-theme="cosmic"]').classList.add('active');
+    
     document.getElementById('meteor-shower-btn').classList.remove('active');
     document.getElementById('performance-mode-btn').classList.remove('active');
+    
     document.documentElement.style.setProperty('--bg-color', '#020204');
     document.documentElement.style.setProperty('--accent-color', '#ffd700');
+    
     initParticles();
     drawNebula();
 });
 
-// Canvas Interaction
-canvas.addEventListener('click', (e) => {
-    const x = e.clientX;
-    const y = e.clientY;
-    if (state.constellationMode) {
-        state.constellationPoints.push({ x, y });
-        state.stats.starsCreated++;
-        document.getElementById('stars-count').textContent = state.stats.starsCreated;
-    } else {
-        state.ripples.push(new Ripple(x, y));
-    }
-});
-
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const x = touch.clientX;
-    const y = touch.clientY;
-    if (state.constellationMode) {
-        state.constellationPoints.push({ x, y });
-        state.stats.starsCreated++;
-        document.getElementById('stars-count').textContent = state.stats.starsCreated;
-    } else {
-        state.ripples.push(new Ripple(x, y));
-    }
-}, { passive: false });
-
-// Gyroscope
+// Mobile Gyroscope
 if (window.DeviceOrientationEvent) {
     window.addEventListener('deviceorientation', e => {
         state.tilt.x += ((e.gamma || 0) - state.tilt.x) * 0.1;
@@ -519,7 +505,7 @@ if (window.DeviceOrientationEvent) {
     });
 }
 
-// Observer for Text Scramble
+// Text Reveal Observer
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -538,6 +524,6 @@ const observer = new IntersectionObserver((entries) => {
 
 document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
 
-// STARTUP CALLS (Must be at the very end)
+// INIT
 resize();
 animate();
