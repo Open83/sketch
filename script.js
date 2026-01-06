@@ -1,31 +1,32 @@
+// ===== SETUP =====
 const canvas = document.getElementById('cosmosCanvas');
 const ctx = canvas.getContext('2d');
 const nebulaCanvas = document.getElementById('nebulaCanvas');
 const nebulaCtx = nebulaCanvas.getContext('2d');
 
-// ===== STATE & CONFIG =====
+// ===== STATE =====
 const state = {
     width: window.innerWidth,
     height: window.innerHeight,
     particles: [],
     shootingStars: [],
-    cursor: { x: window.innerWidth/2, y: window.innerHeight/2, active: false },
+    ripples: [],
+    cursor: { x: window.innerWidth/2, y: window.innerHeight/2, active: false, down: false },
     tilt: { x: 0, y: 0 },
     scrollProgress: 0,
     frameCount: 0,
-    ripples: [],
-    meteorShowerActive: false,
+    performanceMode: false,
     theme: 'cosmic',
-    stats: { startTime: Date.now(), fps: 60 },
-    fullscreen: false,
-    performanceMode: false
+    warpFactor: 0
 };
 
+// Configuration
 const config = {
-    particleCount: window.innerWidth < 768 ? 400 : 850,
+    // Reduce particle count on mobile (300) vs desktop (800)
+    particleCount: window.innerWidth < 768 ? 300 : 800,
     starColors: ['#ffffff', '#fff4e6', '#ffd700', '#87ceeb'],
-    connectionRadius: window.innerWidth < 768 ? 150 : 250,
-    animationSpeed: 1,
+    connectionRadius: window.innerWidth < 768 ? 100 : 250,
+    baseSpeed: 1,
     themes: {
         cosmic: { bg: '#020204', accent: '#ffd700', secondary: '#87ceeb' },
         aurora: { bg: '#0f2027', accent: '#4ecdc4', secondary: '#95e1d3' },
@@ -34,12 +35,11 @@ const config = {
     }
 };
 
-// ===== CLASSES (Defined FIRST to prevent ReferenceError) =====
+// ===== CLASSES (Defined Top-Level) =====
 
 class Star {
-    constructor() {
-        this.reset(true);
-    }
+    constructor() { this.reset(true); }
+    
     reset(randomZ = false) {
         this.x = (Math.random() - 0.5) * state.width * 2;
         this.y = (Math.random() - 0.5) * state.height * 2;
@@ -48,36 +48,39 @@ class Star {
         this.color = config.starColors[Math.floor(Math.random() * config.starColors.length)];
         this.velZ = Math.random() * 2 + 0.5;
     }
+    
     update() {
-        this.z -= (this.velZ + (state.scrollProgress * 8)) * config.animationSpeed;
+        // WARP SPEED LOGIC: Increase speed if cursor is down (Long Press)
+        let speed = this.velZ + (state.scrollProgress * 8);
+        if (state.cursor.down) speed += 30; // Warp speed!
         
-        // Mobile Parallax via Tilt
+        this.z -= speed * config.baseSpeed;
+        
+        // Mobile Parallax
         this.x += state.tilt.x * 0.5;
         this.y += state.tilt.y * 0.5;
         
         if (this.z <= 0) this.reset();
     }
+    
     draw() {
-        if (state.performanceMode && Math.random() > 0.7) return;
+        if (state.performanceMode && Math.random() > 0.6) return;
         
         const focalLength = 300;
         const scale = focalLength / (focalLength + this.z);
         const sx = state.width/2 + this.x * scale;
         const sy = state.height/2 + this.y * scale;
         
-        // Skip off-screen
         if (sx < 0 || sx > state.width || sy < 0 || sy > state.height) return;
         
         ctx.beginPath();
         ctx.arc(sx, sy, this.size * scale * 2, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
-        
-        // Fade out based on depth
         ctx.globalAlpha = Math.min(1, (2000 - this.z) / 1000);
         ctx.fill();
         
-        // Mouse connection lines
-        if (state.cursor.active) {
+        // Connections (Constellations) - Only if not moving too fast
+        if (state.cursor.active && !state.cursor.down) {
             const dx = sx - state.cursor.x;
             const dy = sy - state.cursor.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
@@ -87,7 +90,7 @@ class Star {
                 ctx.moveTo(sx, sy);
                 ctx.lineTo(state.cursor.x, state.cursor.y);
                 ctx.strokeStyle = this.color;
-                ctx.globalAlpha = (1 - dist / config.connectionRadius) * 0.4;
+                ctx.globalAlpha = (1 - dist / config.connectionRadius) * 0.3;
                 ctx.lineWidth = 0.5;
                 ctx.stroke();
             }
@@ -96,73 +99,21 @@ class Star {
     }
 }
 
-class ShootingStar {
-    constructor() {
-        this.reset();
-    }
-    reset() {
-        this.x = Math.random() * state.width;
-        this.y = Math.random() * state.height * 0.5;
-        this.len = Math.random() * 80 + 20;
-        this.speed = (Math.random() * 10 + 6) * config.animationSpeed;
-        this.waitTime = Date.now() + Math.random() * 3000 + 500;
-        this.active = false;
-        this.angle = Math.PI / 4;
-    }
-    update() {
-        if (this.active) {
-            this.x -= this.speed * Math.cos(this.angle);
-            this.y += this.speed * Math.sin(this.angle);
-            
-            if (this.x < -100 || this.y > state.height + 100) {
-                this.active = false;
-                this.waitTime = Date.now() + Math.random() * (state.meteorShowerActive ? 500 : 5000);
-            }
-        } else {
-            if (Date.now() > this.waitTime) {
-                this.reset();
-                this.active = true;
-            }
-        }
-    }
-    draw() {
-        if (!this.active) return;
-        
-        const endX = this.x + this.len * Math.cos(this.angle);
-        const endY = this.y - this.len * Math.sin(this.angle);
-        
-        const grad = ctx.createLinearGradient(this.x, this.y, endX, endY);
-        grad.addColorStop(0, "rgba(255,255,255,1)");
-        grad.addColorStop(1, "rgba(255,255,255,0)");
-        
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-    }
-}
-
 class Ripple {
     constructor(x, y) {
-        this.x = x;
-        this.y = y;
+        this.x = x; this.y = y;
         this.radius = 0;
-        this.maxRadius = 150;
-        this.speed = 3;
-        this.opacity = 1;
+        this.alpha = 1;
     }
     update() {
-        this.radius += this.speed;
-        this.opacity = 1 - (this.radius / this.maxRadius);
-        return this.radius < this.maxRadius;
+        this.radius += 4;
+        this.alpha -= 0.02;
     }
     draw() {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.strokeStyle = config.themes[state.theme].accent;
-        ctx.globalAlpha = this.opacity * 0.5;
+        ctx.globalAlpha = this.alpha;
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.globalAlpha = 1;
@@ -180,7 +131,6 @@ class TextScramble {
         const oldText = this.el.innerText;
         const length = Math.max(oldText.length, newText.length);
         const promise = new Promise((resolve) => this.resolve = resolve);
-        
         this.queue = [];
         for (let i = 0; i < length; i++) {
             const from = oldText[i] || '';
@@ -189,7 +139,6 @@ class TextScramble {
             const end = start + Math.floor(Math.random() * 40);
             this.queue.push({ from, to, start, end });
         }
-        
         cancelAnimationFrame(this.frameRequest);
         this.frame = 0;
         this.update();
@@ -198,10 +147,8 @@ class TextScramble {
     update() {
         let output = '';
         let complete = 0;
-        
         for (let i = 0, n = this.queue.length; i < n; i++) {
             let { from, to, start, end, char } = this.queue[i];
-            
             if (this.frame >= end) {
                 complete++;
                 output += to;
@@ -215,33 +162,21 @@ class TextScramble {
                 output += from;
             }
         }
-        
         this.el.innerHTML = output;
-        
-        if (complete === this.queue.length) {
-            this.resolve();
-        } else {
+        if (complete === this.queue.length) this.resolve();
+        else {
             this.frameRequest = requestAnimationFrame(this.update);
             this.frame++;
         }
     }
-    randomChar() {
-        return this.chars[Math.floor(Math.random() * this.chars.length)];
-    }
+    randomChar() { return this.chars[Math.floor(Math.random() * this.chars.length)]; }
 }
 
 // ===== FUNCTIONS =====
 
 function initParticles() {
     state.particles = [];
-    state.shootingStars = [];
-    for(let i = 0; i < config.particleCount; i++) {
-        state.particles.push(new Star());
-    }
-    const shootingStarCount = state.meteorShowerActive ? 10 : 2;
-    for(let i = 0; i < shootingStarCount; i++) {
-        state.shootingStars.push(new ShootingStar());
-    }
+    for(let i = 0; i < config.particleCount; i++) state.particles.push(new Star());
 }
 
 function drawNebula() {
@@ -249,14 +184,12 @@ function drawNebula() {
     nebulaCtx.fillStyle = theme.bg;
     nebulaCtx.fillRect(0, 0, state.width, state.height);
     
-    // Simple gradient nebulae
     for (let i = 0; i < 3; i++) {
         const gradient = nebulaCtx.createRadialGradient(
             Math.random() * state.width, Math.random() * state.height, 0,
-            Math.random() * state.width, Math.random() * state.height, state.width * 0.5
+            Math.random() * state.width, Math.random() * state.height, state.width * 0.6
         );
-        gradient.addColorStop(0, theme.accent + '40');
-        gradient.addColorStop(0.5, theme.secondary + '20');
+        gradient.addColorStop(0, theme.accent + '33'); // 20% opacity hex
         gradient.addColorStop(1, 'transparent');
         nebulaCtx.fillStyle = gradient;
         nebulaCtx.fillRect(0, 0, state.width, state.height);
@@ -271,123 +204,111 @@ function resize() {
     nebulaCanvas.width = state.width;
     nebulaCanvas.height = state.height;
     
-    config.connectionRadius = state.width < 768 ? 150 : 250;
-    
-    // Init if empty, otherwise just update canvas
-    if (state.particles.length === 0) {
-        initParticles();
+    // Auto-adjust for mobile
+    if (state.width < 768) {
+        config.particleCount = 300;
+        config.connectionRadius = 100;
+    } else {
+        config.particleCount = 800;
+        config.connectionRadius = 250;
     }
+    
+    if(state.particles.length === 0) initParticles();
     drawNebula();
 }
 
-let lastTime = performance.now();
-let frames = 0;
-
-function updateFPS() {
-    frames++;
-    const currentTime = performance.now();
-    if (currentTime >= lastTime + 1000) {
-        state.stats.fps = Math.round((frames * 1000) / (currentTime - lastTime));
-        document.getElementById('fps-count').textContent = state.stats.fps;
-        frames = 0;
-        lastTime = currentTime;
-    }
-}
-
-function updateTime() {
-    const elapsed = Math.floor((Date.now() - state.stats.startTime) / 1000);
-    const mins = Math.floor(elapsed / 60);
-    const secs = elapsed % 60;
-    document.getElementById('time-count').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
 function animate() {
-    // Clear trail
-    ctx.fillStyle = 'rgba(2, 2, 4, 0.3)';
+    // Trails
+    ctx.fillStyle = state.cursor.down ? 'rgba(2, 2, 4, 0.1)' : 'rgba(2, 2, 4, 0.3)';
     ctx.fillRect(0, 0, state.width, state.height);
 
-    state.particles.forEach(p => {
-        p.update();
-        p.draw();
-    });
+    state.particles.forEach(p => { p.update(); p.draw(); });
     
-    state.shootingStars.forEach(s => {
-        s.update();
-        s.draw();
-    });
-    
-    // Ripples
-    state.ripples = state.ripples.filter(ripple => {
-        const alive = ripple.update();
-        if (alive) ripple.draw();
-        return alive;
-    });
+    // Manage Ripples
+    for (let i = state.ripples.length - 1; i >= 0; i--) {
+        const r = state.ripples[i];
+        r.update();
+        r.draw();
+        if (r.alpha <= 0) state.ripples.splice(i, 1);
+    }
 
     state.frameCount++;
-    updateFPS();
-    if (state.frameCount % 60 === 0) updateTime();
     requestAnimationFrame(animate);
 }
 
-function updateCursor(x, y) {
-    state.cursor.x = x;
-    state.cursor.y = y;
-    state.cursor.active = true;
-    
-    // Magnetic Buttons (Desktop only mostly, but kept for logic)
-    document.querySelectorAll('.magnetic-btn, .magnetic-text').forEach(el => {
-        const rect = el.getBoundingClientRect();
-        const dist = Math.hypot(x - (rect.left + rect.width/2), y - (rect.top + rect.height/2));
-        
-        if (dist < 150) {
-            const pull = 0.15;
-            const dx = (x - (rect.left + rect.width/2)) * pull;
-            const dy = (y - (rect.top + rect.height/2)) * pull;
-            el.style.transform = `translate(${dx}px, ${dy}px)`;
-        } else {
-            el.style.transform = 'translate(0,0)';
-        }
-    });
+// ===== INPUT HANDLING =====
 
-    clearTimeout(window.cursorTimeout);
-    window.cursorTimeout = setTimeout(() => {
-        state.cursor.active = false;
-        document.querySelectorAll('.magnetic-btn, .magnetic-text').forEach(el => {
-            el.style.transform = 'translate(0,0)';
-        });
-    }, 2000);
-}
-
-// ===== EVENT LISTENERS =====
-
-window.addEventListener('resize', resize);
-
-window.addEventListener('mousemove', e => updateCursor(e.clientX, e.clientY));
-
-// FIXED: Passive listener allows scrolling on mobile!
-window.addEventListener('touchmove', e => {
-    // We do NOT preventDefault here anymore, allowing page scroll.
-    updateCursor(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: true });
-
-// Interaction: Click to Ripple
-canvas.addEventListener('click', (e) => {
-    // Only create ripple if we are not clicking UI
-    state.ripples.push(new Ripple(e.clientX, e.clientY));
-});
-
-// Scroll Progress
+// Scroll
 window.addEventListener('scroll', () => {
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
     state.scrollProgress = window.scrollY / docHeight;
 });
 
-// UI: Settings Panel
+// Resize
+window.addEventListener('resize', resize);
+
+// Mouse/Touch Move
+function onMove(x, y) {
+    state.cursor.x = x;
+    state.cursor.y = y;
+    state.cursor.active = true;
+    
+    // Clear active state after 2s of inactivity
+    clearTimeout(window.cursorTimeout);
+    window.cursorTimeout = setTimeout(() => state.cursor.active = false, 2000);
+}
+
+window.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+// IMPORTANT: Passive listener for mobile scroll support
+window.addEventListener('touchmove', e => onMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+
+// Mouse/Touch Down (Warp & Ripple)
+function onDown(x, y) {
+    state.cursor.down = true;
+    state.ripples.push(new Ripple(x, y));
+}
+
+function onUp() {
+    state.cursor.down = false;
+}
+
+window.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
+window.addEventListener('touchstart', e => onDown(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+window.addEventListener('mouseup', onUp);
+window.addEventListener('touchend', onUp);
+
+// Gyroscope
+if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', e => {
+        state.tilt.x += ((e.gamma || 0) - state.tilt.x) * 0.1;
+        state.tilt.y += ((e.beta || 0) - state.tilt.y) * 0.1;
+    });
+}
+
+// ===== UI LOGIC =====
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('in-view');
+            entry.target.querySelectorAll('h1, .highlight, .final-text').forEach(el => {
+                if(!el.classList.contains('text-visible')) {
+                    el.classList.add('text-visible');
+                    new TextScramble(el).setText(el.getAttribute('data-value'));
+                }
+            });
+        }
+    });
+}, { threshold: 0.2 }); // Trigger earlier on mobile
+
+document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
+
+// Settings Panel Toggle
 document.getElementById('settings-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     document.getElementById('settings-panel').classList.toggle('open');
 });
 
+// Close settings if clicking outside
 document.addEventListener('click', (e) => {
     const panel = document.getElementById('settings-panel');
     const btn = document.getElementById('settings-btn');
@@ -396,134 +317,53 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// UI: Capture
-document.getElementById('capture-btn').addEventListener('click', () => {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = state.width;
-    tempCanvas.height = state.height;
-    const tCtx = tempCanvas.getContext('2d');
-    
-    // Composite Nebula + Stars
-    tCtx.drawImage(nebulaCanvas, 0, 0);
-    tCtx.drawImage(canvas, 0, 0);
-    
-    // Add Watermark
-    tCtx.font = '30px Cormorant Garamond';
-    tCtx.fillStyle = config.themes[state.theme].accent;
-    tCtx.fillText('Celestial Resonance', 50, state.height - 50);
-
-    const link = document.createElement('a');
-    link.download = `cosmos-${Date.now()}.png`;
-    link.href = tempCanvas.toDataURL();
-    link.click();
-});
-
-// UI: Fullscreen
-document.getElementById('fullscreen-btn').addEventListener('click', () => {
-    state.fullscreen = !state.fullscreen;
-    document.body.classList.toggle('fullscreen');
-    document.getElementById('fullscreen-btn').classList.toggle('active');
-    
-    if (state.fullscreen) {
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
-        }
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
-});
-
-// Settings Inputs
-document.getElementById('particle-slider').addEventListener('input', (e) => {
+// Controls
+document.getElementById('particle-slider').addEventListener('input', e => {
     config.particleCount = parseInt(e.target.value);
     initParticles();
 });
-
-document.getElementById('speed-slider').addEventListener('input', (e) => {
-    config.animationSpeed = parseFloat(e.target.value);
+document.getElementById('speed-slider').addEventListener('input', e => {
+    config.baseSpeed = parseFloat(e.target.value);
 });
-
-document.getElementById('connection-slider').addEventListener('input', (e) => {
-    config.connectionRadius = parseInt(e.target.value);
+document.getElementById('performance-mode-btn').addEventListener('click', function() {
+    state.performanceMode = !state.performanceMode;
+    this.classList.toggle('active');
 });
-
-document.querySelectorAll('.color-option').forEach(option => {
-    option.addEventListener('click', () => {
+document.querySelectorAll('.color-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+        state.theme = opt.dataset.theme;
+        const t = config.themes[state.theme];
+        document.documentElement.style.setProperty('--bg-color', t.bg);
+        document.documentElement.style.setProperty('--accent-color', t.accent);
         document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-        option.classList.add('active');
-        state.theme = option.dataset.theme;
-        const theme = config.themes[state.theme];
-        document.documentElement.style.setProperty('--bg-color', theme.bg);
-        document.documentElement.style.setProperty('--accent-color', theme.accent);
+        opt.classList.add('active');
         drawNebula();
     });
 });
-
-document.getElementById('meteor-shower-btn').addEventListener('click', () => {
-    state.meteorShowerActive = !state.meteorShowerActive;
-    document.getElementById('meteor-shower-btn').classList.toggle('active');
-    initParticles();
-});
-
-document.getElementById('performance-mode-btn').addEventListener('click', () => {
-    state.performanceMode = !state.performanceMode;
-    document.getElementById('performance-mode-btn').classList.toggle('active');
-});
-
 document.getElementById('reset-btn').addEventListener('click', () => {
-    config.particleCount = 850;
-    config.animationSpeed = 1;
-    config.connectionRadius = 250;
-    state.theme = 'cosmic';
-    state.meteorShowerActive = false;
-    state.performanceMode = false;
-    
-    document.getElementById('particle-slider').value = 850;
+    resize(); // Resets to defaults based on screen size
+    config.baseSpeed = 1;
     document.getElementById('speed-slider').value = 1;
-    document.getElementById('connection-slider').value = 250;
-    
-    document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-    document.querySelector('[data-theme="cosmic"]').classList.add('active');
-    
-    document.getElementById('meteor-shower-btn').classList.remove('active');
-    document.getElementById('performance-mode-btn').classList.remove('active');
-    
-    document.documentElement.style.setProperty('--bg-color', '#020204');
-    document.documentElement.style.setProperty('--accent-color', '#ffd700');
-    
-    initParticles();
-    drawNebula();
+    document.getElementById('particle-slider').value = config.particleCount;
 });
 
-// Mobile Gyroscope
-if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientation', e => {
-        state.tilt.x += ((e.gamma || 0) - state.tilt.x) * 0.1;
-        state.tilt.y += ((e.beta || 0) - state.tilt.y) * 0.1;
-    });
-}
+// Capture
+document.getElementById('capture-btn').addEventListener('click', () => {
+    const tCanvas = document.createElement('canvas');
+    tCanvas.width = state.width; tCanvas.height = state.height;
+    const tCtx = tCanvas.getContext('2d');
+    tCtx.drawImage(nebulaCanvas, 0, 0);
+    tCtx.drawImage(canvas, 0, 0);
+    tCtx.font = '30px Montserrat';
+    tCtx.fillStyle = '#ffffff';
+    tCtx.fillText('Celestial Resonance', 40, state.height - 40);
+    
+    const link = document.createElement('a');
+    link.download = `cosmos-${Date.now()}.png`;
+    link.href = tCanvas.toDataURL();
+    link.click();
+});
 
-// Text Reveal Observer
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('in-view');
-            const textElements = entry.target.querySelectorAll('h1, .highlight, .final-text');
-            textElements.forEach(el => {
-                if(!el.classList.contains('text-visible')) {
-                    el.classList.add('text-visible');
-                    const scrambler = new TextScramble(el);
-                    scrambler.setText(el.getAttribute('data-value'));
-                }
-            });
-        }
-    });
-}, { threshold: 0.3 });
-
-document.querySelectorAll('.chapter').forEach(el => observer.observe(el));
-
-// INIT
+// Start
 resize();
 animate();
